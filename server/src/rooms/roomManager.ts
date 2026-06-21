@@ -1,0 +1,162 @@
+// In-memory registry of rooms and the rules for the lobby lifecycle:
+// create/join/leave, listing joinable rooms, ante setting, readiness, and the
+// 3-player minimum to start.
+//
+// Pure logic, no sockets — every method returns a Result so the (thin) socket
+// layer just translates the outcome into emits/acks. This keeps the lobby
+// rules unit-testable without a network.
+
+import { randomBytes } from "node:crypto";
+import {
+  type Room,
+  type RoomSummary,
+  createRoom,
+  roomSummary,
+  MIN_PLAYERS,
+  MAX_PLAYERS,
+} from "./room.js";
+import { type PlayerState, MIN_ANTE } from "../game/state.js";
+
+export type Result<T = void> =
+  | { ok: true; value: T }
+  | { ok: false; error: string };
+
+const ok = <T>(value: T): Result<T> => ({ ok: true, value });
+const fail = (error: string): Result<never> => ({ ok: false, error });
+
+/** Generate a short, human-friendly room code (e.g. "K3F9Q2"). */
+function makeRoomCode(): string {
+  return randomBytes(4).toString("hex").slice(0, 6).toUpperCase();
+}
+
+export class RoomManager {
+  private rooms = new Map<string, Room>();
+  /** playerId -> roomId, so we can find/leave a player's room in O(1). */
+  private playerRoom = new Map<string, string>();
+
+  getRoom(id: string): Room | undefined {
+    return this.rooms.get(id);
+  }
+
+  getRoomForPlayer(playerId: string): Room | undefined {
+    const roomId = this.playerRoom.get(playerId);
+    return roomId ? this.rooms.get(roomId) : undefined;
+  }
+
+  /** Rooms that can still be joined (not started, not full). */
+  listRooms(): RoomSummary[] {
+    return [...this.rooms.values()]
+      .filter((r) => !r.started && r.state.players.length < MAX_PLAYERS)
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map(roomSummary);
+  }
+
+  createRoom(name: string, host: PlayerState): Result<Room> {
+    if (this.playerRoom.has(host.id)) return fail("You are already in a room");
+
+    let id = makeRoomCode();
+    while (this.rooms.has(id)) id = makeRoomCode();
+
+    const room = createRoom(id, name, host);
+    this.rooms.set(id, room);
+    this.playerRoom.set(host.id, id);
+    return ok(room);
+  }
+
+  joinRoom(roomId: string, player: PlayerState): Result<Room> {
+    const room = this.rooms.get(roomId);
+    if (!room) return fail("Room not found");
+    if (room.started) return fail("That game has already started");
+    if (this.playerRoom.has(player.id)) return fail("You are already in a room");
+    if (room.state.players.length >= MAX_PLAYERS) return fail("Room is full");
+
+    room.state.players.push(player);
+    this.playerRoom.set(player.id, roomId);
+    // A new arrival changes who's ready relative to the seat count; the new
+    // player simply starts un-ready, which is already their default.
+    return ok(room);
+  }
+
+  /**
+   * Remove a player from their room. If the room empties it is deleted; if the
+   * host left, host passes to the next player. Returns the affected room (if
+   * any) and whether it was closed, so the caller can broadcast appropriately.
+   */
+  leaveRoom(playerId: string): { room?: Room; closed: boolean } {
+    const roomId = this.playerRoom.get(playerId);
+    this.playerRoom.delete(playerId);
+    if (!roomId) return { closed: false };
+
+    const room = this.rooms.get(roomId);
+    if (!room) return { closed: false };
+
+    room.state.players = room.state.players.filter((p) => p.id !== playerId);
+
+    if (room.state.players.length === 0) {
+      this.rooms.delete(roomId);
+      return { room, closed: true };
+    }
+
+    if (room.hostId === playerId) {
+      room.hostId = room.state.players[0].id;
+    }
+    return { room, closed: false };
+  }
+
+  /** Host sets the ante (>= the 3¢ minimum). Resets readiness so players reconfirm. */
+  setAnte(playerId: string, amount: number): Result<Room> {
+    const room = this.getRoomForPlayer(playerId);
+    if (!room) return fail("You are not in a room");
+    if (room.started) return fail("Game already started");
+    if (room.hostId !== playerId) return fail("Only the host sets the ante");
+    if (!Number.isInteger(amount) || amount < MIN_ANTE) {
+      return fail(`Ante must be a whole number of at least ${MIN_ANTE}¢`);
+    }
+
+    room.state.anteAmount = amount;
+    room.state.anteSet = true;
+    for (const p of room.state.players) p.ready = false;
+    return ok(room);
+  }
+
+  /** Toggle a player's readiness. Can't ready before the ante is set. */
+  setReady(playerId: string, ready: boolean): Result<Room> {
+    const room = this.getRoomForPlayer(playerId);
+    if (!room) return fail("You are not in a room");
+    if (room.started) return fail("Game already started");
+    if (ready && !room.state.anteSet) return fail("The ante hasn't been set yet");
+
+    const player = room.state.players.find((p) => p.id === playerId);
+    if (!player) return fail("Player not in room");
+    player.ready = ready;
+    return ok(room);
+  }
+
+  /** Can this room begin a hand? Ante set, 3+ players, everyone ready. */
+  canStart(room: Room): boolean {
+    return (
+      room.state.anteSet &&
+      room.state.players.length >= MIN_PLAYERS &&
+      room.state.players.every((p) => p.ready)
+    );
+  }
+
+  /**
+   * Host starts the game. Marks the room started (removing it from the lobby).
+   * Actual dealing is wired in Phase 5; this just gates and flips the flag.
+   */
+  startGame(playerId: string): Result<Room> {
+    const room = this.getRoomForPlayer(playerId);
+    if (!room) return fail("You are not in a room");
+    if (room.hostId !== playerId) return fail("Only the host can start the game");
+    if (room.state.players.length < MIN_PLAYERS) {
+      return fail(`Need at least ${MIN_PLAYERS} players to start`);
+    }
+    if (!this.canStart(room)) {
+      return fail("Everyone must be ready and the ante must be set");
+    }
+
+    room.started = true;
+    return ok(room);
+  }
+}

@@ -48,6 +48,9 @@ export interface PlayerState {
   setType: SetType | null;
   setAmount: number;
 
+  /** Lobby readiness — set in the room before a hand starts. */
+  ready: boolean;
+
   /** Connection tracking (matters for reconnect handling later). */
   connected: boolean;
 }
@@ -63,8 +66,10 @@ export interface GameState {
   players: PlayerState[];
 
   // --- Pot / betting (potValue must ALWAYS be divisible by 3) ---
-  /** Ante per player for this hand, set by the dealer. */
+  /** Ante per player for this hand, set by the dealer/host. */
   anteAmount: number;
+  /** Whether the ante has been explicitly set; players can't ready before this. */
+  anteSet: boolean;
   /** Current pot in cents. Invariant: potValue % 3 === 0. */
   potValue: number;
   /** Set penalties carried into the next hand's pot. */
@@ -124,6 +129,7 @@ export function createPlayer(
     wentSet: false,
     setType: null,
     setAmount: 0,
+    ready: false,
     connected: true,
   };
 }
@@ -139,6 +145,7 @@ export function resetPlayerForHand(player: PlayerState): void {
   player.wentSet = false;
   player.setType = null;
   player.setAmount = 0;
+  player.ready = false;
 }
 
 /** Create an idle game state, optionally seeded with players. */
@@ -148,6 +155,7 @@ export function createGameState(players: PlayerState[] = []): GameState {
     players,
 
     anteAmount: MIN_ANTE,
+    anteSet: false,
     potValue: 0,
     nextRoundPotBonus: 0,
 

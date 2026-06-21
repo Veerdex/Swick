@@ -28,6 +28,7 @@ test("createPlayer sets identity and safe per-hand defaults", () => {
   assert.equal(p.wentSet, false);
   assert.equal(p.setType, null);
   assert.equal(p.setAmount, 0);
+  assert.equal(p.ready, false);
   assert.equal(p.connected, true);
 });
 
@@ -48,6 +49,7 @@ test("resetPlayerForHand clears per-hand fields but keeps id, name, money", () =
   p.wentSet = true;
   p.setType = "double";
   p.setAmount = 24;
+  p.ready = true;
 
   resetPlayerForHand(p);
 
@@ -65,6 +67,7 @@ test("resetPlayerForHand clears per-hand fields but keeps id, name, money", () =
   assert.equal(p.wentSet, false);
   assert.equal(p.setType, null);
   assert.equal(p.setAmount, 0);
+  assert.equal(p.ready, false);
 });
 
 test("createGameState starts idle with a valid empty pot", () => {
@@ -73,6 +76,7 @@ test("createGameState starts idle with a valid empty pot", () => {
   assert.deepEqual(s.players, []);
 
   assert.equal(s.anteAmount, MIN_ANTE);
+  assert.equal(s.anteSet, false);
   assert.equal(s.potValue, 0);
   assert.ok(isPotDivisible(s.potValue));
   assert.equal(s.nextRoundPotBonus, 0);
