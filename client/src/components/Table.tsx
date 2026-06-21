@@ -317,9 +317,36 @@ export default function Table({ room }: TableProps) {
       {state.roundState === "end" && (
         <div className="rounded-xl bg-slate-800 p-4 text-center">
           <p className="text-sm font-semibold text-amber-300">Hand complete</p>
-          <p className="mt-1 text-xs text-slate-400">
-            Pot was {state.potValue}¢.
-          </p>
+          <p className="mt-1 text-xs text-slate-400">Pot was {state.potValue}¢.</p>
+
+          <ul className="mx-auto mt-3 max-w-xs space-y-1 text-left text-xs">
+            {state.players.map((p) => (
+              <li key={p.id} className="flex justify-between">
+                <span>{p.name}</span>
+                <span
+                  className={
+                    p.wentSet
+                      ? "text-red-300"
+                      : p.tricksWon > 0
+                        ? "text-emerald-300"
+                        : "text-slate-500"
+                  }
+                >
+                  {p.wentSet
+                    ? `set ${p.setType} (−${p.setAmount}¢)`
+                    : `${p.tricksWon} trick${p.tricksWon === 1 ? "" : "s"}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          {state.nextRoundPotBonus > 0 && (
+            <p className="mt-3 text-xs text-amber-300">
+              {state.nextRoundPotBonus}¢ carried into the next pot — free ride
+              (no antes, dealer adds 3¢).
+            </p>
+          )}
+
           {isHost ? (
             <button
               onClick={nextHand}

@@ -80,12 +80,17 @@ export function startHand(state: GameState): void {
   dealer.isDealer = true;
   state.dealerId = dealer.id;
 
-  // 2. Antes -> pot. Each player pays the ante; the dealer pays 3¢ extra.
-  // Carried set penalties (nextRoundPotBonus) seed the pot, then reset.
+  // 2. Antes -> pot. Carried set penalties (nextRoundPotBonus) seed the pot.
+  // On a "free ride" hand (a set was carried over) those penalties already
+  // fund the pot, so nobody antes the standard amount — only the new dealer
+  // adds their 3¢ extra. Otherwise everyone antes normally.
+  const freeRide = state.nextRoundPotBonus > 0;
   let pot = state.nextRoundPotBonus;
-  for (const p of players) {
-    p.money -= state.anteAmount;
-    pot += state.anteAmount;
+  if (!freeRide) {
+    for (const p of players) {
+      p.money -= state.anteAmount;
+      pot += state.anteAmount;
+    }
   }
   dealer.money -= DEALER_EXTRA;
   pot += DEALER_EXTRA;

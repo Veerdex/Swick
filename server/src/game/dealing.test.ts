@@ -102,11 +102,13 @@ test("startHand deducts antes from money (dealer pays extra)", () => {
   assert.equal(dealer.money, 1000 - 3 - DEALER_EXTRA);
 });
 
-test("startHand folds a carried set bonus into the pot, then clears it", () => {
+test("a carried set bonus seeds a free-ride pot (no standard antes), then clears", () => {
   const s = gameWith(3, 3);
   s.nextRoundPotBonus = 12;
   startHand(s);
-  assert.equal(s.potValue, 3 * 3 + DEALER_EXTRA + 12); // 24
+  // Free ride: the carried penalty funds the pot; only the dealer's 3¢ extra
+  // is added. No standard antes.
+  assert.equal(s.potValue, 12 + DEALER_EXTRA); // 15
   assert.ok(isPotDivisible(s.potValue));
   assert.equal(s.nextRoundPotBonus, 0);
 });

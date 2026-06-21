@@ -15,6 +15,7 @@
 import { type Card, rankValue } from "./cards.js";
 import { type GameState, getPlayer, type PlayerState } from "./state.js";
 import type { PlayedCard } from "./state.js";
+import { resolveHand } from "./scoring.js";
 
 /** Knocked-in players in seat order — the ones actually playing tricks. */
 function activePlayers(state: GameState): PlayerState[] {
@@ -123,9 +124,8 @@ function resolveTrick(state: GameState): void {
   state.leadSuit = null;
 
   if (state.trickNumber >= 3) {
-    // Hand over. Set calculation and pot payout are Phase 9.
-    state.roundState = "end";
-    state.currentTurnPlayerId = null;
+    // Hand over: pay trick winners and settle set penalties.
+    resolveHand(state);
   } else {
     state.currentTurnPlayerId = winnerId; // winner leads the next trick
   }
