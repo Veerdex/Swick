@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { socket } from "../lib/socket";
+import Table from "./Table";
 import type { ActionAck, RoomView } from "../types";
 
 interface RoomProps {
@@ -12,11 +13,12 @@ export default function Room({ room, onLeft }: RoomProps) {
   const [error, setError] = useState<string | null>(null);
   const [anteInput, setAnteInput] = useState(String(room.state.anteAmount));
 
-  const myId = socket.id;
+  const myId = room.youId;
   const isHost = myId === room.hostId;
   const me = room.state.players.find((p) => p.id === myId);
 
   // Keep the ante input in sync if the host changes it elsewhere.
+  // (hooks must run before any early return)
   useEffect(() => {
     setAnteInput(String(room.state.anteAmount));
   }, [room.state.anteAmount]);
@@ -32,6 +34,24 @@ export default function Room({ room, onLeft }: RoomProps) {
     socket.emit("room:ready", { ready: !me?.ready }, ack);
   const startGame = () => socket.emit("room:start", ack);
   const leave = () => socket.emit("room:leave", () => onLeft());
+
+  // Once the hand is dealt, show the game table instead of the lobby controls.
+  if (room.started) {
+    return (
+      <div className="w-full max-w-2xl space-y-4">
+        <header className="flex items-center justify-between">
+          <h1 className="text-xl font-bold">{room.name}</h1>
+          <button
+            onClick={leave}
+            className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm hover:bg-slate-600"
+          >
+            Leave
+          </button>
+        </header>
+        <Table room={room} />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-xl space-y-6">

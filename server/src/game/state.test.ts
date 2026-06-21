@@ -85,6 +85,7 @@ test("createGameState starts idle with a valid empty pot", () => {
   assert.equal(s.trumpCard, null);
   assert.equal(s.dealerKeptTrump, false);
   assert.equal(s.dealerTrumpValue, null);
+  assert.equal(s.dealerHandRevealed, false);
 
   assert.equal(s.dealerId, null);
   assert.equal(s.currentTurnPlayerId, null);

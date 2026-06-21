@@ -81,6 +81,12 @@ export interface GameState {
   dealerKeptTrump: boolean;
   /** Rank of the kept trump card (drives the dealer face-trump rule). */
   dealerTrumpValue: Rank | null;
+  /**
+   * The dealer is blind to their dealt cards until their discard turn. This
+   * flips true when that turn begins; until then the filter hides the dealer's
+   * hand (showing only a kept trump card, which is public).
+   */
+  dealerHandRevealed: boolean;
 
   // --- Turn pointers (whose turn it is, per phase) ---
   dealerId: string | null;
@@ -163,6 +169,7 @@ export function createGameState(players: PlayerState[] = []): GameState {
     trumpCard: null,
     dealerKeptTrump: false,
     dealerTrumpValue: null,
+    dealerHandRevealed: false,
 
     dealerId: null,
     currentTurnPlayerId: null,

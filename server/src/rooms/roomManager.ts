@@ -16,6 +16,7 @@ import {
   MAX_PLAYERS,
 } from "./room.js";
 import { type PlayerState, MIN_ANTE } from "../game/state.js";
+import { startHand, dealerTrumpDecision } from "../game/dealing.js";
 
 export type Result<T = void> =
   | { ok: true; value: T }
@@ -109,8 +110,10 @@ export class RoomManager {
     if (!room) return fail("You are not in a room");
     if (room.started) return fail("Game already started");
     if (room.hostId !== playerId) return fail("Only the host sets the ante");
-    if (!Number.isInteger(amount) || amount < MIN_ANTE) {
-      return fail(`Ante must be a whole number of at least ${MIN_ANTE}¢`);
+    if (!Number.isInteger(amount) || amount < MIN_ANTE || amount % 3 !== 0) {
+      // Multiples of 3 keep the pot (players x ante + 3 dealer extra)
+      // divisible by 3 for any player count.
+      return fail(`Ante must be a multiple of ${MIN_ANTE}¢ (at least ${MIN_ANTE}¢)`);
     }
 
     room.state.anteAmount = amount;
@@ -142,8 +145,8 @@ export class RoomManager {
   }
 
   /**
-   * Host starts the game. Marks the room started (removing it from the lobby).
-   * Actual dealing is wired in Phase 5; this just gates and flips the flag.
+   * Host starts the game: mark the room started (removing it from the lobby)
+   * and deal the first hand, leaving the dealer to decide on the trump card.
    */
   startGame(playerId: string): Result<Room> {
     const room = this.getRoomForPlayer(playerId);
@@ -157,6 +160,22 @@ export class RoomManager {
     }
 
     room.started = true;
+    startHand(room.state);
+    return ok(room);
+  }
+
+  /** The dealer keeps or passes on the flipped trump card. */
+  keepTrump(playerId: string, keep: boolean): Result<Room> {
+    const room = this.getRoomForPlayer(playerId);
+    if (!room) return fail("You are not in a room");
+    if (room.state.roundState !== "trump-selection") {
+      return fail("It isn't trump-selection time");
+    }
+    if (room.state.dealerId !== playerId) {
+      return fail("Only the dealer decides on the trump card");
+    }
+
+    dealerTrumpDecision(room.state, keep);
     return ok(room);
   }
 }

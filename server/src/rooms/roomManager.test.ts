@@ -85,6 +85,8 @@ test("setAnte: host only, integer >= minimum, sets the flag", () => {
   assert.equal(mgr.setAnte("p1", 6).ok, false, "non-host rejected");
   assert.equal(mgr.setAnte("host", 2).ok, false, "below minimum rejected");
   assert.equal(mgr.setAnte("host", 4.5).ok, false, "non-integer rejected");
+  assert.equal(mgr.setAnte("host", 4).ok, false, "non-multiple-of-3 rejected");
+  assert.equal(mgr.setAnte("host", 5).ok, false, "non-multiple-of-3 rejected");
 
   assert.ok(mgr.setAnte("host", 6).ok);
   assert.equal(room.state.anteAmount, 6);

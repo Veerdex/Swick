@@ -6,6 +6,7 @@ import type { Server, Socket } from "socket.io";
 import { RoomManager, type Result } from "../rooms/roomManager.js";
 import type { Room } from "../rooms/room.js";
 import { createPlayer } from "../game/state.js";
+import { viewFor } from "../game/view.js";
 
 // One shared manager for the whole server process (in-memory state).
 const manager = new RoomManager();
@@ -16,21 +17,28 @@ function sanitizeName(raw: unknown): string {
   return name || "Player";
 }
 
-/** The view of a room sent to its members: no server-only deck. */
-function publicRoomState(room: Room) {
-  const { deck: _deck, ...state } = room.state;
+/** The room view for one specific viewer (hidden info filtered out). */
+function roomStateFor(room: Room, viewerId: string) {
   return {
     id: room.id,
     name: room.name,
     hostId: room.hostId,
     started: room.started,
     canStart: manager.canStart(room),
-    state,
+    youId: viewerId,
+    state: viewFor(room.state, viewerId),
   };
 }
 
+/**
+ * Broadcast to every member individually, since each player gets a different
+ * filtered view (their own hand; the dealer stays blind). Each socket auto-joins
+ * a room named by its own id, so io.to(playerId) targets exactly that client.
+ */
 function broadcastRoom(io: Server, room: Room) {
-  io.to(room.id).emit("room:state", publicRoomState(room));
+  for (const player of room.state.players) {
+    io.to(player.id).emit("room:state", roomStateFor(room, player.id));
+  }
 }
 
 function broadcastLobby(io: Server) {
@@ -105,6 +113,10 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     const res = manager.startGame(socket.id);
     settle(io, res, ack);
     if (res.ok) broadcastLobby(io); // started room drops out of the lobby
+  });
+
+  socket.on("room:keepTrump", (payload: { keep?: boolean }, ack: Ack) => {
+    settle(io, manager.keepTrump(socket.id, !!payload?.keep), ack);
   });
 
   socket.on("disconnect", () => handleLeave(io, socket));
