@@ -58,6 +58,7 @@ export interface GameView {
   leadSuit: GameState["leadSuit"];
 
   specialHandWinner: string | null;
+  specialHandType: string | null;
 
   /** Cards left in the draw stock (count only — never the cards). */
   deckCount: number;
@@ -159,6 +160,7 @@ export function viewFor(state: GameState, viewerId: string): GameView {
     leadSuit: state.leadSuit,
 
     specialHandWinner: state.specialHandWinner,
+    specialHandType: state.specialHandType,
 
     deckCount: state.deck.length,
 

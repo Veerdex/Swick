@@ -164,7 +164,8 @@ test("a heavy 6-player redraw never runs out of cards (reshuffle works)", () => 
       id === s.dealerId && s.dealerKeptTrump && !s.dealerTrimPending;
     applyDiscard(s, id, isKeptTrumpDealer ? [0, 1, 2] : [0, 1, 2].slice(0, Math.min(3, player.hand.length)));
   }
-  assert.equal(s.roundState, "turns");
+  // Discards complete (a freshly drawn special hand could jump straight to end).
+  assert.ok(s.roundState === "turns" || s.roundState === "end");
   for (const p of s.players) assert.equal(p.hand.length, 3);
   assertConservation(s);
 });

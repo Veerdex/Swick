@@ -15,6 +15,7 @@ import { type Card, cardsEqual } from "./cards.js";
 import { shuffle } from "./deck.js";
 import { type GameState, getPlayer, type PlayerState } from "./state.js";
 import { clockwiseFromDealerLeft } from "./dealing.js";
+import { findSpecialHandWinner, resolveSpecialHand } from "./specialHands.js";
 
 /** Knocked-in players in discard order: dealer's left first, dealer last. */
 function discardOrder(state: GameState): PlayerState[] {
@@ -47,8 +48,18 @@ function removeFromHand(player: PlayerState, indices: number[]): Card[] {
   return removed;
 }
 
-/** Move to trick-taking once everyone has discarded. Phase 8 refines the lead. */
+/**
+ * Once everyone has discarded, check for a special hand (3 Aces / 3 Sevens /
+ * A-K-Q of trump). If one exists the holder wins the pot instantly and no
+ * tricks are played; otherwise trick-taking begins.
+ */
 export function beginTurns(state: GameState): void {
+  const special = findSpecialHandWinner(state);
+  if (special) {
+    resolveSpecialHand(state, special.playerId, special.hand);
+    return;
+  }
+
   state.roundState = "turns";
   state.trickNumber = 0;
   state.currentTrick = [];

@@ -110,6 +110,8 @@ export interface GameState {
   // --- Outcomes ---
   /** Player id holding a special hand (3 Aces, 3 Sevens, A-K-Q trump). */
   specialHandWinner: string | null;
+  /** Which special hand won, for display ("three-aces" | "three-sevens" | "akq-trump"). */
+  specialHandType: string | null;
 
   // --- Server-only ---
   /**
@@ -192,6 +194,7 @@ export function createGameState(players: PlayerState[] = []): GameState {
     leadSuit: null,
 
     specialHandWinner: null,
+    specialHandType: null,
 
     deck: [],
     discardPile: [],

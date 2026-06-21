@@ -317,6 +317,17 @@ export default function Table({ room }: TableProps) {
       {state.roundState === "end" && (
         <div className="rounded-xl bg-slate-800 p-4 text-center">
           <p className="text-sm font-semibold text-amber-300">Hand complete</p>
+          {state.specialHandWinner && (
+            <p className="mt-1 text-sm font-semibold text-fuchsia-300">
+              {playerName(state.specialHandWinner)} won with{" "}
+              {state.specialHandType === "three-aces"
+                ? "Three Aces"
+                : state.specialHandType === "three-sevens"
+                  ? "Three Sevens"
+                  : "A-K-Q of Trump"}
+              ! Instant pot win — no tricks played.
+            </p>
+          )}
           <p className="mt-1 text-xs text-slate-400">Pot was {state.potValue}¢.</p>
 
           <ul className="mx-auto mt-3 max-w-xs space-y-1 text-left text-xs">
