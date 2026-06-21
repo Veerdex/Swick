@@ -17,6 +17,7 @@ import {
 } from "./room.js";
 import { type PlayerState, MIN_ANTE } from "../game/state.js";
 import { startHand, dealerTrumpDecision } from "../game/dealing.js";
+import { applyKnock } from "../game/knockIn.js";
 
 export type Result<T = void> =
   | { ok: true; value: T }
@@ -176,6 +177,30 @@ export class RoomManager {
     }
 
     dealerTrumpDecision(room.state, keep);
+    return ok(room);
+  }
+
+  /** A player knocks in or passes during the knock-in phase. */
+  knock(playerId: string, knockIn: boolean): Result<Room> {
+    const room = this.getRoomForPlayer(playerId);
+    if (!room) return fail("You are not in a room");
+    if (room.state.roundState !== "knock-in") return fail("It isn't knock-in time");
+    if (room.state.currentKnockPlayerId !== playerId) {
+      return fail("It isn't your turn to knock");
+    }
+
+    applyKnock(room.state, playerId, knockIn);
+    return ok(room);
+  }
+
+  /** Host deals the next hand once the previous one has ended. */
+  nextHand(playerId: string): Result<Room> {
+    const room = this.getRoomForPlayer(playerId);
+    if (!room) return fail("You are not in a room");
+    if (room.hostId !== playerId) return fail("Only the host deals the next hand");
+    if (room.state.roundState !== "end") return fail("The hand isn't over yet");
+
+    startHand(room.state);
     return ok(room);
   }
 }

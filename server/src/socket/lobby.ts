@@ -119,5 +119,14 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     settle(io, manager.keepTrump(socket.id, !!payload?.keep), ack);
   });
 
+  socket.on("room:knock", (payload: { knock?: boolean }, ack: Ack) => {
+    settle(io, manager.knock(socket.id, !!payload?.knock), ack);
+  });
+
+  socket.on("room:nextHand", (ack: Ack) => {
+    const res = manager.nextHand(socket.id);
+    settle(io, res, ack);
+  });
+
   socket.on("disconnect", () => handleLeave(io, socket));
 }

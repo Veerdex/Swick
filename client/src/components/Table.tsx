@@ -16,9 +16,22 @@ export default function Table({ room }: TableProps) {
   // If any of my own cards are still hidden, I'm a blind dealer.
   const iAmBlind = iAmDealer && (me?.hand.some((c) => c === null) ?? false);
 
+  const isHost = room.hostId === youId;
+  const myTurnToKnock =
+    state.roundState === "knock-in" && state.currentKnockPlayerId === youId;
+
   const ack = (a: ActionAck) => setError(a.ok ? null : a.error ?? "Action failed");
   const keepTrump = (keep: boolean) =>
     socket.emit("room:keepTrump", { keep }, ack);
+  const knock = (k: boolean) => socket.emit("room:knock", { knock: k }, ack);
+  const nextHand = () => socket.emit("room:nextHand", ack);
+
+  const knockStatus = (p: (typeof state.players)[number]): string => {
+    if (!p.hasKnockDecision) {
+      return state.currentKnockPlayerId === p.id ? "deciding…" : "—";
+    }
+    return p.knockedIn ? "knocked in" : "passed";
+  };
 
   return (
     <div className="w-full max-w-2xl space-y-5">
@@ -72,6 +85,19 @@ export default function Table({ room }: TableProps) {
                   )}
                 </span>
                 <span className="flex items-center gap-3 text-xs text-slate-400">
+                  {state.roundState === "knock-in" && (
+                    <span
+                      className={
+                        p.hasKnockDecision && p.knockedIn
+                          ? "text-emerald-300"
+                          : p.hasKnockDecision
+                            ? "text-slate-500"
+                            : "text-amber-300"
+                      }
+                    >
+                      {knockStatus(p)}
+                    </span>
+                  )}
                   <span>{p.handCount} cards</span>
                   <span>{p.tricksWon} tricks</span>
                   <span>{p.money}¢</span>
@@ -133,6 +159,51 @@ export default function Table({ room }: TableProps) {
               Pass
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Knock-in decision */}
+      {myTurnToKnock && (
+        <div className="rounded-xl bg-slate-800 p-4">
+          <p className="mb-3 text-sm">
+            Knock in to play this hand (you commit your ante), or pass to fold?
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => knock(true)}
+              className="flex-1 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium hover:bg-emerald-400"
+            >
+              Knock in
+            </button>
+            <button
+              onClick={() => knock(false)}
+              className="flex-1 rounded-lg bg-slate-600 px-4 py-2 text-sm font-medium hover:bg-slate-500"
+            >
+              Pass
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* End of hand */}
+      {state.roundState === "end" && (
+        <div className="rounded-xl bg-slate-800 p-4 text-center">
+          <p className="text-sm font-semibold text-amber-300">Hand complete</p>
+          <p className="mt-1 text-xs text-slate-400">
+            Pot was {state.potValue}¢.
+          </p>
+          {isHost ? (
+            <button
+              onClick={nextHand}
+              className="mt-3 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400"
+            >
+              Deal next hand
+            </button>
+          ) : (
+            <p className="mt-3 text-xs text-slate-500">
+              Waiting for the host to deal the next hand…
+            </p>
+          )}
         </div>
       )}
 
