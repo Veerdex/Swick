@@ -169,37 +169,67 @@ never decide game outcomes. This prevents cheating and keeps all players in sync
 
 ## Getting Started
 
-> ⚠️ The project is in early development. Commands below are the intended workflow and
-> will be filled in as the backend and frontend are scaffolded.
-
 ### Prerequisites
 
-- Node.js (LTS) and npm
+- Node.js 20.x and npm
 - A Railway account (for deployment)
 
 ### Local development
 
 ```bash
-# Backend (Socket.io server)
+# Backend (Socket.io server) — http://localhost:3001
 cd server
 npm install
-npm run dev          # starts the authoritative game server
+npm run dev          # starts the authoritative game server (tsx watch)
 
-# Frontend (React + Vite), in a second terminal
+# Frontend (React + Vite) — http://localhost:5173, in a second terminal
 cd client
 npm install
 npm run dev          # starts the Vite dev server
 ```
 
-Open the Vite dev URL in your browser. Start at least **3 players** (open multiple tabs,
-or add bots) to begin a hand.
+Open http://localhost:5173, enter a name, create a table, and **+ Add bot** twice to
+reach the 3-player minimum, then set the ante, ready up, and start. (The defaults wire
+the client to the server with no env config needed.)
+
+Run the server test suite with `cd server && npm test`.
 
 ### Deployment (Railway)
 
-- The server binds `process.env.PORT` (injected by Railway); SSL/WSS is handled by the
-  Railway proxy.
-- Deploy the `server` and `client` as Railway services (or host the client on
-  Vercel/Netlify) and point the client's socket URL at the server.
+The app deploys as **two Railway services from this one repo**, each pointed at a
+subfolder via its **Root Directory** setting. The server binds `process.env.PORT` and
+Railway terminates SSL/WSS at its proxy, so WebSockets work with no extra config.
+
+> **Order matters** — the client bakes `VITE_SERVER_URL` into its bundle at *build*
+> time, so the server must have a public URL first.
+
+1. **Server service**
+   - New service → this repo → **Root Directory** = `server`.
+   - Railway auto-builds (`npm run build` → `tsc`) and runs `npm start`
+     (`node dist/index.js`); config is in `server/railway.json`.
+   - Generate a public domain (Settings → Networking).
+   - Leave `CLIENT_ORIGIN` unset for now (filled in step 3).
+
+2. **Client service**
+   - New service → same repo → **Root Directory** = `client`.
+   - Add a **build variable** `VITE_SERVER_URL` = the server's public URL
+     (e.g. `https://swick-server-production.up.railway.app`).
+   - Railway builds (`vite build`) and serves the static `dist/` with `serve`
+     (`client/railway.json`). Generate a public domain.
+
+3. **Wire CORS back to the client**
+   - On the **server** service, set `CLIENT_ORIGIN` = the client's public URL, then
+     redeploy the server.
+
+4. Open the client URL and play. If you change the client's domain or the server URL
+   later, **redeploy the client** so the new `VITE_SERVER_URL` is baked in.
+
+Environment variables at a glance:
+
+| Service | Variable | Value | When |
+|---------|----------|-------|------|
+| server | `CLIENT_ORIGIN` | client's public URL | runtime (CORS) |
+| client | `VITE_SERVER_URL` | server's public URL | **build** time |
 
 ---
 
@@ -226,19 +256,19 @@ CLAUDE.md                ← contributor/AI development guide
 
 ## Roadmap
 
-**Core game**
+**Core game** — complete ✅
 
-- [ ] Project setup — server WS endpoint + client round-trip
-- [ ] 32-card deck — shuffle, deal, draw (no duplicates)
-- [ ] Authoritative game state
-- [ ] Lobby & room system (min 3 players, ante gating)
-- [ ] Dealing & trump selection (dealer blind)
-- [ ] Knock-in phase
-- [ ] Discard & draw phase (dealer last)
-- [ ] Trick-taking (follow-suit enforced server-side)
-- [ ] Going-set calculation
-- [ ] Special hands
-- [ ] Bot players (per-phase AI)
+- [x] Project setup — server WS endpoint + client round-trip
+- [x] 32-card deck — shuffle, deal, draw (no duplicates)
+- [x] Authoritative game state
+- [x] Lobby & room system (min 3 players, ante gating)
+- [x] Dealing & trump selection (dealer blind)
+- [x] Knock-in phase
+- [x] Discard & draw phase (dealer last)
+- [x] Trick-taking (follow-suit enforced server-side)
+- [x] Going-set calculation
+- [x] Special hands
+- [x] Bot players (per-phase AI)
 
 **Stretch goals**
 
