@@ -45,6 +45,7 @@ export interface GameView {
   trumpCard: GameState["trumpCard"];
   dealerKeptTrump: boolean;
   dealerTrumpValue: GameState["dealerTrumpValue"];
+  dealerTrimPending: boolean;
 
   dealerId: string | null;
   currentTurnPlayerId: string | null;
@@ -142,6 +143,7 @@ export function viewFor(state: GameState, viewerId: string): GameView {
     trumpCard: state.trumpCard,
     dealerKeptTrump: state.dealerKeptTrump,
     dealerTrumpValue: state.dealerTrumpValue,
+    dealerTrimPending: state.dealerTrimPending,
 
     dealerId: state.dealerId,
     currentTurnPlayerId: state.currentTurnPlayerId,

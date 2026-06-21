@@ -113,6 +113,8 @@ export function startHand(state: GameState): void {
   state.dealerKeptTrump = false;
   state.dealerTrumpValue = null;
   state.dealerHandRevealed = false;
+  state.dealerTrimPending = false;
+  state.discardPile = [];
   state.specialHandWinner = null;
   state.trickNumber = 0;
   state.currentTrick = [];

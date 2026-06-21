@@ -97,7 +97,9 @@ test("createGameState starts idle with a valid empty pot", () => {
   assert.equal(s.leadSuit, null);
 
   assert.equal(s.specialHandWinner, null);
+  assert.equal(s.dealerTrimPending, false);
   assert.deepEqual(s.deck, []);
+  assert.deepEqual(s.discardPile, []);
 });
 
 test("createGameState can be seeded with players", () => {

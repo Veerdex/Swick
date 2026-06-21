@@ -123,6 +123,11 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     settle(io, manager.knock(socket.id, !!payload?.knock), ack);
   });
 
+  socket.on("room:discard", (payload: { indices?: number[] }, ack: Ack) => {
+    const indices = Array.isArray(payload?.indices) ? payload.indices : [];
+    settle(io, manager.discard(socket.id, indices), ack);
+  });
+
   socket.on("room:nextHand", (ack: Ack) => {
     const res = manager.nextHand(socket.id);
     settle(io, res, ack);

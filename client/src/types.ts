@@ -53,6 +53,7 @@ export interface GameView {
   trumpCard: Card | null;
   dealerKeptTrump: boolean;
   dealerTrumpValue: Rank | null;
+  dealerTrimPending: boolean;
 
   dealerId: string | null;
   currentTurnPlayerId: string | null;

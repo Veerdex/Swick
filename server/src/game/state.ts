@@ -87,6 +87,11 @@ export interface GameState {
    * hand (showing only a kept trump card, which is public).
    */
   dealerHandRevealed: boolean;
+  /**
+   * True while a kept-trump dealer (holding 4 cards after discard/draw) still
+   * owes one final non-trump discard to get back to 3.
+   */
+  dealerTrimPending: boolean;
 
   // --- Turn pointers (whose turn it is, per phase) ---
   dealerId: string | null;
@@ -113,6 +118,11 @@ export interface GameState {
    * the dealer's hidden cards). Filtering lives in the socket layer.
    */
   deck: Card[];
+  /**
+   * Discarded cards (server-only). When the draw stock runs low, the discard
+   * pile is reshuffled back into it so a full table never runs out of cards.
+   */
+  discardPile: Card[];
 }
 
 /** Create a fresh player with default per-hand fields and a starting balance. */
@@ -170,6 +180,7 @@ export function createGameState(players: PlayerState[] = []): GameState {
     dealerKeptTrump: false,
     dealerTrumpValue: null,
     dealerHandRevealed: false,
+    dealerTrimPending: false,
 
     dealerId: null,
     currentTurnPlayerId: null,
@@ -183,6 +194,7 @@ export function createGameState(players: PlayerState[] = []): GameState {
     specialHandWinner: null,
 
     deck: [],
+    discardPile: [],
   };
 }
 

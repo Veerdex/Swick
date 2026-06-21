@@ -18,6 +18,7 @@ import {
 import { type PlayerState, MIN_ANTE } from "../game/state.js";
 import { startHand, dealerTrumpDecision } from "../game/dealing.js";
 import { applyKnock } from "../game/knockIn.js";
+import { applyDiscard } from "../game/discard.js";
 
 export type Result<T = void> =
   | { ok: true; value: T }
@@ -190,6 +191,21 @@ export class RoomManager {
     }
 
     applyKnock(room.state, playerId, knockIn);
+    return ok(room);
+  }
+
+  /** A knocked-in player discards the chosen card indices (and draws). */
+  discard(playerId: string, indices: number[]): Result<Room> {
+    const room = this.getRoomForPlayer(playerId);
+    if (!room) return fail("You are not in a room");
+    if (room.state.roundState !== "discard-draw") {
+      return fail("It isn't discard time");
+    }
+    if (room.state.currentDiscardPlayerId !== playerId) {
+      return fail("It isn't your turn to discard");
+    }
+
+    applyDiscard(room.state, playerId, indices);
     return ok(room);
   }
 
