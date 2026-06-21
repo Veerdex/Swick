@@ -1,0 +1,20 @@
+{
+  "name": "swick-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Authoritative game server for SWICK (Node + TypeScript + Socket.io)",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}
