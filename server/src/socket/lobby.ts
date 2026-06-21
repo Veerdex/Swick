@@ -128,6 +128,10 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     settle(io, manager.discard(socket.id, indices), ack);
   });
 
+  socket.on("room:playCard", (payload: { index?: number }, ack: Ack) => {
+    settle(io, manager.playCard(socket.id, Number(payload?.index)), ack);
+  });
+
   socket.on("room:nextHand", (ack: Ack) => {
     const res = manager.nextHand(socket.id);
     settle(io, res, ack);

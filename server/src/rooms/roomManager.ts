@@ -19,6 +19,7 @@ import { type PlayerState, MIN_ANTE } from "../game/state.js";
 import { startHand, dealerTrumpDecision } from "../game/dealing.js";
 import { applyKnock } from "../game/knockIn.js";
 import { applyDiscard } from "../game/discard.js";
+import { playCard } from "../game/tricks.js";
 
 export type Result<T = void> =
   | { ok: true; value: T }
@@ -206,6 +207,19 @@ export class RoomManager {
     }
 
     applyDiscard(room.state, playerId, indices);
+    return ok(room);
+  }
+
+  /** A player plays the card at the given hand index during trick-taking. */
+  playCard(playerId: string, cardIndex: number): Result<Room> {
+    const room = this.getRoomForPlayer(playerId);
+    if (!room) return fail("You are not in a room");
+    if (room.state.roundState !== "turns") return fail("It isn't trick-taking time");
+    if (room.state.currentTurnPlayerId !== playerId) {
+      return fail("It isn't your turn");
+    }
+
+    playCard(room.state, playerId, cardIndex);
     return ok(room);
   }
 

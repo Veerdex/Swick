@@ -26,6 +26,9 @@ export default function Table({ room }: TableProps) {
   const myTurnToDiscard =
     state.roundState === "discard-draw" && state.currentDiscardPlayerId === youId;
   const trimming = myTurnToDiscard && iAmDealer && state.dealerTrimPending;
+  const myTurnToPlay =
+    state.roundState === "turns" && state.currentTurnPlayerId === youId;
+  const legal = new Set(state.yourLegalPlays);
 
   // Clear card selection whenever the turn or trim step changes.
   useEffect(() => {
@@ -53,6 +56,13 @@ export default function Table({ room }: TableProps) {
 
   const confirmDiscard = () =>
     socket.emit("room:discard", { indices: [...selected] }, ack);
+  const play = (i: number, card: CardSlot) => {
+    if (!myTurnToPlay || !card || !legal.has(i)) return;
+    socket.emit("room:playCard", { index: i }, ack);
+  };
+
+  const playerName = (id: string) =>
+    state.players.find((p) => p.id === id)?.name ?? "?";
 
   const handCount = me?.hand.length ?? 0;
   const trimNeeded = handCount - 3; // cards the dealer still owes on the trim
@@ -153,20 +163,27 @@ export default function Table({ room }: TableProps) {
           {(me?.hand ?? []).map((card: CardSlot, i) => {
             const picked = selected.has(i);
             const selectable = myTurnToDiscard && !!card && !isKeptTrump(card);
+            const playable = myTurnToPlay && !!card && legal.has(i);
+            const dimmed = myTurnToPlay && !!card && !legal.has(i);
+            const onClick = myTurnToPlay
+              ? () => play(i, card)
+              : () => toggleCard(i, card);
             return (
               <button
                 key={i}
                 type="button"
-                onClick={() => toggleCard(i, card)}
-                disabled={!selectable}
-                className={`transition ${selectable ? "cursor-pointer" : "cursor-default"} ${
-                  picked ? "-translate-y-2 opacity-60" : ""
-                }`}
+                onClick={onClick}
+                disabled={!selectable && !playable}
+                className={`transition ${
+                  selectable || playable ? "cursor-pointer hover:-translate-y-1" : "cursor-default"
+                } ${picked ? "-translate-y-2 opacity-60" : ""} ${dimmed ? "opacity-40" : ""}`}
                 title={isKeptTrump(card) ? "The trump card can't be discarded" : ""}
               >
                 <Card
                   card={card}
-                  highlight={isKeptTrump(card) || sameCard(card, state.trumpCard)}
+                  highlight={
+                    playable || isKeptTrump(card) || sameCard(card, state.trumpCard)
+                  }
                 />
               </button>
             );
@@ -177,7 +194,44 @@ export default function Table({ room }: TableProps) {
             {selected.size} selected · tap cards to {trimming ? "trim" : "discard"}
           </p>
         )}
+        {myTurnToPlay && (
+          <p className="mt-2 text-xs text-emerald-300">
+            Your turn — tap a highlighted card to play it.
+          </p>
+        )}
       </div>
+
+      {/* Current trick */}
+      {(state.roundState === "turns" || state.currentTrick.length > 0) && (
+        <div className="rounded-xl bg-slate-800 p-4">
+          <h2 className="mb-3 text-sm font-semibold">
+            Trick {Math.min(state.trickNumber + 1, 3)} of 3
+            {state.leadSuit && (
+              <span className="ml-2 text-xs font-normal text-slate-400">
+                led: {state.leadSuit}
+              </span>
+            )}
+          </h2>
+          {state.currentTrick.length === 0 ? (
+            <p className="text-xs text-slate-500">
+              {state.currentTurnPlayerId
+                ? `${playerName(state.currentTurnPlayerId)} to lead…`
+                : "—"}
+            </p>
+          ) : (
+            <div className="flex gap-4">
+              {state.currentTrick.map((pc, i) => (
+                <div key={i} className="flex flex-col items-center gap-1">
+                  <Card card={pc.card} size="sm" />
+                  <span className="text-[10px] text-slate-400">
+                    {playerName(pc.playerId)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Discard & draw controls */}
       {myTurnToDiscard && (

@@ -10,6 +10,7 @@
 
 import { type Card, cardsEqual } from "./cards.js";
 import type { GameState, PlayerState } from "./state.js";
+import { legalPlays } from "./tricks.js";
 
 /** A card slot in a hand view: the card if visible, or null if face-down. */
 export type CardSlot = Card | null;
@@ -60,6 +61,9 @@ export interface GameView {
 
   /** Cards left in the draw stock (count only — never the cards). */
   deckCount: number;
+
+  /** Hand indices the viewer may legally play right now (empty if not their turn). */
+  yourLegalPlays: number[];
 
   players: PlayerView[];
 }
@@ -157,6 +161,11 @@ export function viewFor(state: GameState, viewerId: string): GameView {
     specialHandWinner: state.specialHandWinner,
 
     deckCount: state.deck.length,
+
+    yourLegalPlays:
+      state.roundState === "turns" && state.currentTurnPlayerId === viewerId
+        ? legalPlays(state, viewerId)
+        : [],
 
     players: state.players.map((p) => buildPlayerView(state, viewerId, p)),
   };

@@ -118,8 +118,9 @@ and cross-check against `SWICK_RULES.md`.
 - Discard 0–3, draw that many. Trump card never discardable.
 
 **Ace-of-Trump lead rule**
-- Applies **only to the very first trick of the entire game**, not every hand. If the
-  player immediately left of the dealer holds the Ace of Trump, they must lead it.
+- Applies to the **first trick of each hand** (per SWICK_RULES.md; the dev guide's
+  "entire game" wording was overridden by decision). If the player immediately left of
+  the dealer holds the Ace of Trump, they must lead it on that hand's first trick.
 
 **Trick-taking**
 - Must follow suit if able, AND must play a **higher card of the lead suit** if you

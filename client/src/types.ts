@@ -67,6 +67,8 @@ export interface GameView {
   specialHandWinner: string | null;
 
   deckCount: number;
+  /** Hand indices the viewer may legally play right now (empty if not their turn). */
+  yourLegalPlays: number[];
   players: PlayerView[];
 }
 
