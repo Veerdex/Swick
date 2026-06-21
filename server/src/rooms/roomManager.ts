@@ -15,7 +15,7 @@ import {
   MIN_PLAYERS,
   MAX_PLAYERS,
 } from "./room.js";
-import { type PlayerState, MIN_ANTE } from "../game/state.js";
+import { type PlayerState, MIN_ANTE, createPlayer } from "../game/state.js";
 import { startHand, dealerTrumpDecision } from "../game/dealing.js";
 import { applyKnock } from "../game/knockIn.js";
 import { applyDiscard } from "../game/discard.js";
@@ -27,6 +27,15 @@ export type Result<T = void> =
 
 const ok = <T>(value: T): Result<T> => ({ ok: true, value });
 const fail = (error: string): Result<never> => ({ ok: false, error });
+
+const BOT_NAMES = [
+  "Botworth",
+  "Cara-bot",
+  "Tin Tristan",
+  "RoboRiver",
+  "Chip",
+  "Ada",
+];
 
 /** Generate a short, human-friendly room code (e.g. "K3F9Q2"). */
 function makeRoomCode(): string {
@@ -82,9 +91,9 @@ export class RoomManager {
   }
 
   /**
-   * Remove a player from their room. If the room empties it is deleted; if the
-   * host left, host passes to the next player. Returns the affected room (if
-   * any) and whether it was closed, so the caller can broadcast appropriately.
+   * Remove a player from their room. The room is closed once no humans remain
+   * (bots can't host); otherwise the host, if they left, passes to another
+   * human. Returns the affected room and whether it was closed.
    */
   leaveRoom(playerId: string): { room?: Room; closed: boolean } {
     const roomId = this.playerRoom.get(playerId);
@@ -96,15 +105,53 @@ export class RoomManager {
 
     room.state.players = room.state.players.filter((p) => p.id !== playerId);
 
-    if (room.state.players.length === 0) {
+    const humans = room.state.players.filter((p) => !p.isBot);
+    if (humans.length === 0) {
+      // No humans left — close the room and release any bots.
+      for (const p of room.state.players) this.playerRoom.delete(p.id);
       this.rooms.delete(roomId);
       return { room, closed: true };
     }
 
     if (room.hostId === playerId) {
-      room.hostId = room.state.players[0].id;
+      room.hostId = humans[0].id; // host always passes to a human
     }
     return { room, closed: false };
+  }
+
+  /** Host adds a bot to fill a seat. Bots are always ready. */
+  addBot(hostId: string): Result<Room> {
+    const room = this.getRoomForPlayer(hostId);
+    if (!room) return fail("You are not in a room");
+    if (room.hostId !== hostId) return fail("Only the host can add bots");
+    if (room.started) return fail("Game already started");
+    if (room.state.players.length >= MAX_PLAYERS) return fail("Room is full");
+
+    const taken = new Set(room.state.players.map((p) => p.name));
+    const base = BOT_NAMES.find((n) => !taken.has(n)) ?? "Bot";
+    let name = base;
+    for (let k = 2; taken.has(name); k++) name = `${base} ${k}`;
+
+    const id = `bot-${randomBytes(4).toString("hex")}`;
+    const bot = createPlayer(id, name, true);
+    bot.ready = true; // bots are always ready
+    room.state.players.push(bot);
+    this.playerRoom.set(id, room.id);
+    return ok(room);
+  }
+
+  /** Host removes a bot from the room. */
+  removeBot(hostId: string, botId: string): Result<Room> {
+    const room = this.getRoomForPlayer(hostId);
+    if (!room) return fail("You are not in a room");
+    if (room.hostId !== hostId) return fail("Only the host can remove bots");
+    if (room.started) return fail("Game already started");
+    const bot = room.state.players.find((p) => p.id === botId && p.isBot);
+    if (!bot) return fail("No such bot");
+
+    room.state.players = room.state.players.filter((p) => p.id !== botId);
+    this.playerRoom.delete(botId);
+    return ok(room);
   }
 
   /** Host sets the ante (>= the 3¢ minimum). Resets readiness so players reconfirm. */
@@ -121,7 +168,7 @@ export class RoomManager {
 
     room.state.anteAmount = amount;
     room.state.anteSet = true;
-    for (const p of room.state.players) p.ready = false;
+    for (const p of room.state.players) if (!p.isBot) p.ready = false;
     return ok(room);
   }
 
@@ -138,12 +185,12 @@ export class RoomManager {
     return ok(room);
   }
 
-  /** Can this room begin a hand? Ante set, 3+ players, everyone ready. */
+  /** Can this room begin a hand? Ante set, 3+ players, every human ready. */
   canStart(room: Room): boolean {
     return (
       room.state.anteSet &&
       room.state.players.length >= MIN_PLAYERS &&
-      room.state.players.every((p) => p.ready)
+      room.state.players.every((p) => p.isBot || p.ready)
     );
   }
 

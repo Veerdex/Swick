@@ -106,9 +106,19 @@ export default function Room({ room, onLeft }: RoomProps) {
       </div>
 
       <div className="rounded-xl bg-slate-800 p-4">
-        <h2 className="mb-3 text-sm font-semibold">
-          Players ({room.state.players.length}/6)
-        </h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">
+            Players ({room.state.players.length}/6)
+          </h2>
+          {isHost && room.state.players.length < 6 && (
+            <button
+              onClick={() => socket.emit("room:addBot", ack)}
+              className="rounded-lg bg-slate-700 px-3 py-1 text-xs hover:bg-slate-600"
+            >
+              + Add bot
+            </button>
+          )}
+        </div>
         <ul className="space-y-2">
           {room.state.players.map((p) => (
             <li
@@ -122,6 +132,11 @@ export default function Room({ room, onLeft }: RoomProps) {
                   }`}
                 />
                 {p.name}
+                {p.isBot && (
+                  <span className="rounded bg-slate-500/30 px-1.5 py-0.5 text-[10px] font-medium text-slate-300">
+                    BOT
+                  </span>
+                )}
                 {p.id === myId && (
                   <span className="text-xs text-slate-400">(you)</span>
                 )}
@@ -131,9 +146,18 @@ export default function Room({ room, onLeft }: RoomProps) {
                   </span>
                 )}
               </span>
-              <span className="text-xs text-slate-400">
-                {p.ready ? "ready" : "not ready"}
-              </span>
+              {isHost && p.isBot ? (
+                <button
+                  onClick={() => socket.emit("room:removeBot", { botId: p.id }, ack)}
+                  className="text-xs text-red-300 hover:text-red-200"
+                >
+                  remove
+                </button>
+              ) : (
+                <span className="text-xs text-slate-400">
+                  {p.ready ? "ready" : "not ready"}
+                </span>
+              )}
             </li>
           ))}
         </ul>
