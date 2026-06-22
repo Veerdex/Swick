@@ -13,7 +13,6 @@ const NAME_KEY = "swick:playerName";
 // join) and a room (ante, ready, start). The server is authoritative — we only
 // render the room:state it broadcasts.
 export default function App() {
-  const [connected, setConnected] = useState(socket.connected);
   const [playerName, setPlayerName] = useState(
     () => localStorage.getItem(NAME_KEY) ?? "",
   );
@@ -21,24 +20,29 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(true);
   const { audioRef, musicOn, toggleMusic } = useBackgroundMusic();
 
+  // Once a hand is in progress the backdrop becomes the green poker table.
+  const inGame = !!room?.started;
+
   // Persist the chosen name across reloads.
   useEffect(() => {
     localStorage.setItem(NAME_KEY, playerName);
   }, [playerName]);
 
+  // Lock page scrolling while the intro is on screen.
   useEffect(() => {
-    const onConnect = () => setConnected(true);
-    const onDisconnect = () => {
-      setConnected(false);
-      setRoom(null); // our seat is gone once the socket drops
+    document.body.style.overflow = showIntro ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
     };
+  }, [showIntro]);
+
+  useEffect(() => {
+    const onDisconnect = () => setRoom(null); // our seat is gone once the socket drops
     const onRoomState = (next: RoomView) => setRoom(next);
 
-    socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("room:state", onRoomState);
     return () => {
-      socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("room:state", onRoomState);
     };
@@ -52,44 +56,36 @@ export default function App() {
         aria-hidden
         className="fixed inset-0 -z-10 bg-slate-950"
         style={{
-          backgroundImage:
-            "linear-gradient(rgba(2,6,23,0.45), rgba(2,6,23,0.6)), url('/lobby-background.png')",
+          backgroundImage: inGame
+            ? "url('/poker-table-green.png')"
+            : "linear-gradient(rgba(2,6,23,0.45), rgba(2,6,23,0.6)), url('/lobby-background.png')",
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
       />
 
-      {/* Decorative gold frame over everything (cosmetic, click-through). */}
-      <Frame />
+      {/* Decorative gold frame — hidden once the game (poker table) is showing. */}
+      {!inGame && <Frame />}
 
       {/* Looping background music. Starts on first interaction (autoplay policy). */}
       <audio ref={audioRef} src="/casino-music.mp3" loop preload="auto" />
 
-      {/* Music toggle stays available even during the intro. */}
-      <button
-        onClick={toggleMusic}
-        aria-label={musicOn ? "Mute music" : "Unmute music"}
-        title={musicOn ? "Mute music" : "Play music"}
-        className="fixed right-4 top-4 z-20 rounded-lg bg-slate-900/70 px-2 py-1 text-sm hover:bg-slate-800"
-      >
-        {musicOn ? "🔊" : "🔇"}
-      </button>
+      {/* Music toggle — hidden during the intro. */}
+      {!showIntro && (
+        <button
+          onClick={toggleMusic}
+          aria-label={musicOn ? "Mute music" : "Unmute music"}
+          title={musicOn ? "Mute music" : "Play music"}
+          className="fixed right-7 top-7 z-20 rounded-xl bg-slate-900/70 px-3 py-2 text-2xl leading-none hover:bg-slate-800"
+        >
+          {musicOn ? "🔊" : "🔇"}
+        </button>
+      )}
 
       {showIntro ? (
         <Intro onPlay={() => setShowIntro(false)} />
       ) : (
         <>
-          <div className="mb-4 flex w-full max-w-xl items-center gap-2">
-            <span
-              className={`inline-block h-2.5 w-2.5 rounded-full ${
-                connected ? "bg-emerald-400" : "bg-red-400"
-              }`}
-            />
-            <span className="text-xs text-slate-400">
-              {connected ? "Connected" : "Disconnected"}
-            </span>
-          </div>
-
           {room ? (
             <Room room={room} onLeft={() => setRoom(null)} />
           ) : (

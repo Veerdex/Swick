@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { socket } from "../lib/socket";
-import Table from "./Table";
+import GameTable from "./GameTable";
 import type { ActionAck, RoomView } from "../types";
 
 interface RoomProps {
@@ -35,22 +35,10 @@ export default function Room({ room, onLeft }: RoomProps) {
   const startGame = () => socket.emit("room:start", ack);
   const leave = () => socket.emit("room:leave", () => onLeft());
 
-  // Once the hand is dealt, show the game table instead of the lobby controls.
+  // Once the hand is dealt, show the (new) game table. For now it's just the
+  // green poker-table background — the in-game UI is being rebuilt.
   if (room.started) {
-    return (
-      <div className="w-full max-w-2xl space-y-4">
-        <header className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">{room.name}</h1>
-          <button
-            onClick={leave}
-            className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm hover:bg-slate-600"
-          >
-            Leave
-          </button>
-        </header>
-        <Table room={room} />
-      </div>
-    );
+    return <GameTable room={room} />;
   }
 
   return (

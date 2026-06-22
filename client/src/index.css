@@ -95,11 +95,183 @@ body {
   animation: intro-fade-up 0.8s ease-out backwards;
 }
 
+/* Gentle bob for the lobby title cards. Two eased extremes give smooth,
+   sine-like turnarounds (no linear-segment kinks); per-card delay ripples it.
+   will-change promotes each card to its own layer for sub-pixel smoothness. */
+@keyframes float-sine {
+  0%,
+  100% {
+    transform: translate3d(0, -10px, 0);
+  }
+  50% {
+    transform: translate3d(0, 10px, 0);
+  }
+}
+.float-sine {
+  animation: float-sine 3.2s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* A card flipping up from the deck during dealer selection. */
+@keyframes reveal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.reveal-pop {
+  animation: reveal-pop 0.28s ease-out backwards;
+}
+
+/* A card flying from the deck out to a seat (offset set per seat via --fx/--fy). */
+@keyframes deal-in {
+  from {
+    transform: translate(var(--fx, 0), var(--fy, 0)) scale(0.55);
+    opacity: 0;
+  }
+  to {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+}
+.deal-in {
+  animation: deal-in 0.34s ease-out backwards;
+}
+
+/* The trump card flying into the dealer's hand (destination via --tx/--ty). */
+@keyframes fly-to-dealer {
+  from {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--tx, 0), var(--ty, 0)) scale(0.4);
+    opacity: 0;
+  }
+}
+.fly-to-dealer {
+  animation: fly-to-dealer 0.8s ease-in forwards;
+}
+
+/* A hand card turning face-up. */
+@keyframes flip-reveal {
+  from {
+    transform: rotateY(90deg);
+    opacity: 0.3;
+  }
+  to {
+    transform: rotateY(0deg);
+    opacity: 1;
+  }
+}
+.flip-reveal {
+  animation: flip-reveal 0.4s ease-out backwards;
+}
+
+/* The trump card flipping face-up. */
+@keyframes trump-flip {
+  from {
+    transform: rotateY(90deg) scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: rotateY(0) scale(1);
+    opacity: 1;
+  }
+}
+.trump-flip {
+  animation: trump-flip 0.5s ease-out backwards;
+}
+
+/* Glowing, blinking gold outline for the dealer's trump card. */
+@keyframes trump-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(251, 191, 36, 0.95),
+      0 0 28px 8px rgba(251, 191, 36, 0.65);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(251, 191, 36, 0.35),
+      0 0 12px 3px rgba(251, 191, 36, 0.2);
+  }
+}
+.trump-glow {
+  border-radius: 0.75rem;
+  animation: trump-glow 1.1s ease-in-out infinite;
+}
+
+/* 10s countdown ring — the gold arc depletes as time runs out. */
+@keyframes countdown-deplete {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: var(--circ);
+  }
+}
+.countdown-ring {
+  animation: countdown-deplete 10s linear forwards;
+}
+
+/* Dealer popup entrance. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.pop-in {
+  animation: pop-in 0.3s ease-out backwards;
+}
+
+/* Rotating gold sunburst behind the Play button. */
+@keyframes intro-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.play-glow {
+  /* 18 evenly spaced rays (20deg divides 360 cleanly -> no seam, symmetrical). */
+  background: repeating-conic-gradient(
+    rgba(247, 233, 142, 0.3) 0deg 6deg,
+    transparent 6deg 20deg
+  );
+  -webkit-mask-image: radial-gradient(
+    closest-side,
+    transparent 32%,
+    #000 46%,
+    #000 64%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    closest-side,
+    transparent 32%,
+    #000 46%,
+    #000 64%,
+    transparent 100%
+  );
+  animation: intro-spin 16s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .intro-letter,
   .intro-card,
   .intro-play {
     animation-duration: 0.01ms;
     animation-delay: 0ms !important;
+  }
+  .play-glow,
+  .float-sine {
+    animation: none;
   }
 }

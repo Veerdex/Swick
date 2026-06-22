@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { socket } from "../lib/socket";
+import SwickCards from "./SwickCards";
 import type { ActionAck, RoomSummary } from "../types";
+
+// Shared casino styling: deep-red panels with a gold border, gold-bordered
+// centered inputs.
+const PANEL = "rounded-xl border border-amber-400/50 bg-red-950/70 p-4 shadow-lg";
+const INPUT =
+  "w-full rounded-lg border border-amber-400/40 bg-red-950/50 px-3 py-2 text-center text-sm text-amber-50 placeholder:text-amber-100/40 outline-none focus:border-amber-300";
+const GOLD_BTN =
+  "rounded-lg bg-gradient-to-b from-amber-300 to-amber-600 px-4 py-2 text-sm font-semibold text-red-950 shadow hover:from-amber-200 hover:to-amber-500 disabled:opacity-50";
 
 interface LobbyProps {
   playerName: string;
@@ -58,14 +67,18 @@ export default function Lobby({
   };
 
   return (
-    <div className="w-full max-w-xl space-y-6">
-      <header>
-        <h1 className="text-4xl font-bold tracking-tight">SWICK</h1>
-        <p className="text-sm text-slate-400">Lobby</p>
-      </header>
+    <div className="w-full max-w-xl space-y-6 pt-14">
+      {/* Floating SWICK title + Lobby */}
+      <div className="flex flex-col items-center gap-4 pt-2">
+        <SwickCards variant="float" />
+        <p className="text-3xl font-semibold tracking-wide text-amber-200 drop-shadow">
+          Lobby
+        </p>
+      </div>
 
-      <div className="space-y-2">
-        <label className="text-xs uppercase tracking-wide text-slate-400">
+      {/* Your name */}
+      <div className={`${PANEL} text-center`}>
+        <label className="mb-2 block text-xs uppercase tracking-wide text-amber-200/80">
           Your name
         </label>
         <input
@@ -73,36 +86,37 @@ export default function Lobby({
           onChange={(e) => onNameChange(e.target.value)}
           placeholder="Display name"
           maxLength={20}
-          className="w-full rounded-lg bg-slate-700 px-3 py-2 text-sm outline-none ring-1 ring-slate-600 focus:ring-indigo-400"
+          className={INPUT}
         />
       </div>
 
-      <div className="rounded-xl bg-slate-800 p-4">
-        <h2 className="mb-3 text-sm font-semibold">Create a table</h2>
+      {/* Create a table */}
+      <div className={PANEL}>
+        <h2 className="mb-3 text-center text-sm font-semibold text-amber-100">
+          Create a table
+        </h2>
         <div className="flex gap-2">
           <input
             value={roomName}
             onChange={(e) => setRoomName(e.target.value)}
             placeholder="Table name (optional)"
             maxLength={30}
-            className="flex-1 rounded-lg bg-slate-700 px-3 py-2 text-sm outline-none ring-1 ring-slate-600 focus:ring-indigo-400"
+            className={INPUT}
           />
-          <button
-            onClick={createRoom}
-            className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400"
-          >
+          <button onClick={createRoom} className={`${GOLD_BTN} shrink-0`}>
             Create
           </button>
         </div>
       </div>
 
-      <div className="rounded-xl bg-slate-800 p-4">
+      {/* Open tables */}
+      <div className={PANEL}>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Open tables</h2>
-          <span className="text-xs text-slate-400">{rooms.length} available</span>
+          <h2 className="text-sm font-semibold text-amber-100">Open tables</h2>
+          <span className="text-xs text-amber-200/70">{rooms.length} available</span>
         </div>
         {rooms.length === 0 ? (
-          <p className="py-6 text-center text-sm text-slate-500">
+          <p className="py-6 text-center text-sm text-amber-100/50">
             No open tables. Create one above.
           </p>
         ) : (
@@ -110,18 +124,18 @@ export default function Lobby({
             {rooms.map((room) => (
               <li
                 key={room.id}
-                className="flex items-center justify-between rounded-lg bg-slate-700/60 px-3 py-2"
+                className="flex items-center justify-between rounded-lg border border-amber-400/30 bg-red-950/50 px-3 py-2"
               >
                 <div>
-                  <p className="text-sm font-medium">{room.name}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-sm font-medium text-amber-50">{room.name}</p>
+                  <p className="text-xs text-amber-100/60">
                     {room.playerCount}/{room.maxPlayers} players · #{room.id}
                   </p>
                 </div>
                 <button
                   onClick={() => joinRoom(room.id)}
                   disabled={room.playerCount >= room.maxPlayers}
-                  className="rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-medium hover:bg-emerald-400 disabled:opacity-50"
+                  className={`${GOLD_BTN} px-3 py-1.5`}
                 >
                   Join
                 </button>
@@ -132,7 +146,7 @@ export default function Lobby({
       </div>
 
       {error && (
-        <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-300">
+        <p className="rounded-lg border border-red-400/40 bg-red-500/15 px-3 py-2 text-center text-sm text-red-200">
           {error}
         </p>
       )}

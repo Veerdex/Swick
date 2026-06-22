@@ -1,63 +1,58 @@
+import SwickCards from "./SwickCards";
+
 interface IntroProps {
   /** Called when the player clicks Play to enter the lobby. */
   onPlay: () => void;
 }
 
-const LETTERS = ["S", "W", "I", "C", "K"];
-// Alternate red/black like a real deck (W and C are red).
-const RED = new Set([1, 3]);
-
-// Play button fades in first, then the letters drop in one after another.
+// The Play button fades in first, then the letters drop in (SwickCards "drop").
 const PLAY_DELAY = 0.4;
-const FIRST_CARD_DELAY = 1.3;
-const CARD_STAGGER = 0.22;
 
 /**
  * Opening title sequence: over the casino background, the Play button transitions
- * in, then five cards drop from the top on strings, swing, and settle spelling
- * "SWICK". Clicking Play dismisses the intro and shows the lobby.
+ * in (centered), then five cards drop from the top on strings, swing, and settle
+ * spelling "SWICK" near the top quarter. Clicking Play shows the lobby.
+ *
+ * The title and the button are positioned independently so the title can sit
+ * high while the button stays centered in the viewport.
  */
 export default function Intro({ onPlay }: IntroProps) {
   return (
-    <div className="flex min-h-[82vh] flex-col items-center justify-center gap-14 overflow-hidden">
-      <div className="flex gap-3 sm:gap-4">
-        {LETTERS.map((ch, i) => {
-          const delay = `${FIRST_CARD_DELAY + i * CARD_STAGGER}s`;
-          return (
-            <div
-              key={ch}
-              className="intro-letter flex flex-col items-center"
-              style={{ animationDelay: delay }}
-            >
-              {/* The string the card hangs from */}
-              <div className="h-10 w-px bg-gradient-to-b from-transparent to-amber-200/70" />
-              <div
-                className="intro-card relative flex h-24 w-16 items-center justify-center rounded-xl bg-white text-5xl font-black shadow-2xl ring-1 ring-amber-300/50 sm:h-28 sm:w-20"
-                style={{ animationDelay: delay }}
-              >
-                {/* the pin where the string attaches */}
-                <span className="absolute -top-1.5 h-3 w-3 rounded-full bg-amber-300 shadow" />
-                <span className={RED.has(i) ? "text-red-600" : "text-slate-900"}>
-                  {ch}
-                </span>
-              </div>
-            </div>
-          );
-        })}
+    <div className="relative min-h-[100dvh] w-full overflow-hidden">
+      {/* SWICK cards — anchored near the top quarter */}
+      <div className="absolute left-1/2 top-[12vh] -translate-x-1/2">
+        <SwickCards variant="drop" />
       </div>
 
-      <button
-        onClick={onPlay}
-        aria-label="Play"
-        className="intro-play transition-transform hover:scale-105 active:scale-95"
-        style={{ animationDelay: `${PLAY_DELAY}s` }}
-      >
-        <img
-          src="/casino-play-button.png"
-          alt="Play"
-          className="w-44 drop-shadow-2xl sm:w-52"
-        />
-      </button>
+      {/* Play button — centered in the viewport (outer div centers, inner div
+          runs the fade-in so the two transforms don't collide) */}
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+        <div
+          className="intro-play relative flex items-center justify-center"
+          style={{ animationDelay: `${PLAY_DELAY}s` }}
+        >
+          {/* rotating gold sunburst + soft halo behind the button */}
+          <span
+            aria-hidden
+            className="play-glow pointer-events-none absolute h-72 w-72 rounded-full sm:h-80 sm:w-80"
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute h-56 w-56 rounded-full bg-amber-300/15 blur-2xl sm:h-64 sm:w-64"
+          />
+          <button
+            onClick={onPlay}
+            aria-label="Play"
+            className="relative z-10 transition-transform hover:scale-105 active:scale-95"
+          >
+            <img
+              src="/casino-play-button.png"
+              alt="Play"
+              className="w-44 drop-shadow-2xl sm:w-52"
+            />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
