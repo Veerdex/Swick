@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { socket } from "./lib/socket";
 import { useBackgroundMusic } from "./lib/useBackgroundMusic";
+import Frame from "./components/Frame";
 import Intro from "./components/Intro";
 import Lobby from "./components/Lobby";
 import Room from "./components/Room";
@@ -44,16 +45,23 @@ export default function App() {
   }, []);
 
   return (
-    <main
-      className="min-h-screen text-slate-100 flex flex-col items-center p-6 bg-slate-900"
-      style={{
-        backgroundImage:
-          "linear-gradient(rgba(2,6,23,0.45), rgba(2,6,23,0.6)), url('/lobby-background.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundAttachment: "fixed",
-      }}
-    >
+    <main className="relative min-h-screen text-slate-100 flex flex-col items-center p-6">
+      {/* Fixed, non-scrolling casino background — pinned to the viewport so it
+          never moves, even when overscrolling past the top/bottom. */}
+      <div
+        aria-hidden
+        className="fixed inset-0 -z-10 bg-slate-950"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(2,6,23,0.45), rgba(2,6,23,0.6)), url('/lobby-background.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      />
+
+      {/* Decorative gold frame over everything (cosmetic, click-through). */}
+      <Frame />
+
       {/* Looping background music. Starts on first interaction (autoplay policy). */}
       <audio ref={audioRef} src="/casino-music.mp3" loop preload="auto" />
 

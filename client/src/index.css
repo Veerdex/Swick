@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
+/* Dark everywhere outside the app content (status bar / overscroll / safe
+   areas), so the installed app never flashes white at the edges. */
+:root {
+  color-scheme: dark;
+}
+/* Dark fallback lives on <html> only — a background on <body> would paint
+   over the fixed -z-10 image layer. */
+html {
+  background-color: #0a0a12;
+}
+html,
+body {
+  /* No rubber-band/bounce past the top or bottom. */
+  overscroll-behavior: none;
+}
+
 /* ---- Intro title sequence ---------------------------------------------- */
 
 /* Each letter "drops" from above the viewport and bounces as the string
