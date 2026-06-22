@@ -1,1 +1,89 @@
 @import "tailwindcss";
+
+/* ---- Intro title sequence ---------------------------------------------- */
+
+/* Each letter "drops" from above the viewport and bounces as the string
+   catches it. transform on the falling wrapper handles the fall + bounce. */
+@keyframes intro-drop {
+  0% {
+    transform: translateY(-130vh);
+  }
+  50% {
+    transform: translateY(0);
+  } /* string goes taut */
+  62% {
+    transform: translateY(-22px);
+  } /* bounce up */
+  74% {
+    transform: translateY(0);
+  }
+  85% {
+    transform: translateY(-8px);
+  }
+  93% {
+    transform: translateY(0);
+  }
+  97% {
+    transform: translateY(-3px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* The card swings on its string (pivot at the top) and damps to rest. */
+@keyframes intro-swing {
+  0%,
+  46% {
+    transform: rotate(0deg);
+  }
+  55% {
+    transform: rotate(-13deg);
+  }
+  65% {
+    transform: rotate(9deg);
+  }
+  75% {
+    transform: rotate(-5deg);
+  }
+  85% {
+    transform: rotate(3deg);
+  }
+  93% {
+    transform: rotate(-1.5deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes intro-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.intro-letter {
+  animation: intro-drop 1.5s cubic-bezier(0.45, 0, 0.55, 1) backwards;
+}
+.intro-card {
+  transform-origin: top center;
+  animation: intro-swing 1.5s ease-out backwards;
+}
+.intro-play {
+  animation: intro-fade-up 0.8s ease-out backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-letter,
+  .intro-card,
+  .intro-play {
+    animation-duration: 0.01ms;
+    animation-delay: 0ms !important;
+  }
+}
