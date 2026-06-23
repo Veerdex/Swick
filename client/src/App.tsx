@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { socket } from "./lib/socket";
 import { useBackgroundMusic } from "./lib/useBackgroundMusic";
+import { usePreventZoom } from "./lib/usePreventZoom";
 import Frame from "./components/Frame";
 import Intro from "./components/Intro";
 import Lobby from "./components/Lobby";
@@ -19,6 +20,7 @@ export default function App() {
   const [room, setRoom] = useState<RoomView | null>(null);
   const [showIntro, setShowIntro] = useState(true);
   const { audioRef, musicOn, toggleMusic } = useBackgroundMusic();
+  usePreventZoom();
 
   // Once a hand is in progress the backdrop becomes the green poker table.
   const inGame = !!room?.started;

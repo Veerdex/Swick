@@ -219,6 +219,36 @@ body {
   animation: countdown-deplete 10s linear forwards;
 }
 
+/* Comic-book onomatopoeia for knock-in decisions (KNOCK IN! / PASS). */
+.comic-text {
+  font-weight: 900;
+  font-style: italic;
+  text-transform: uppercase;
+  -webkit-text-stroke: 2.5px #000;
+  paint-order: stroke fill;
+  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.45));
+}
+@keyframes comic-pop {
+  0% {
+    transform: scale(0) rotate(-14deg);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.25) rotate(-5deg);
+    opacity: 1;
+  }
+  78% {
+    transform: scale(0.9) rotate(-2deg);
+  }
+  100% {
+    transform: scale(1) rotate(-4deg);
+    opacity: 1;
+  }
+}
+.comic-pop {
+  animation: comic-pop 0.45s ease-out backwards;
+}
+
 /* Dealer popup entrance. */
 @keyframes pop-in {
   from {

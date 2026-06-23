@@ -112,6 +112,11 @@ export interface GameState {
   specialHandWinner: string | null;
   /** Which special hand won, for display ("three-aces" | "three-sevens" | "akq-trump"). */
   specialHandType: string | null;
+  /**
+   * The most recent discard/draw, so clients can animate the swap (cards out to
+   * the deck, replacements back). seq increases on every discard action.
+   */
+  lastDiscard: { playerId: string; out: number; in: number; seq: number } | null;
 
   // --- Server-only ---
   /**
@@ -195,6 +200,7 @@ export function createGameState(players: PlayerState[] = []): GameState {
 
     specialHandWinner: null,
     specialHandType: null,
+    lastDiscard: null,
 
     deck: [],
     discardPile: [],

@@ -118,6 +118,8 @@ export function applyDiscard(
     }
   }
 
+  const nextSeq = (state.lastDiscard?.seq ?? 0) + 1;
+
   // Final trim step for a kept-trump dealer (no draw, must land on exactly 3).
   if (keptTrump && state.dealerTrimPending) {
     const needed = player.hand.length - 3;
@@ -126,6 +128,7 @@ export function applyDiscard(
     }
     state.discardPile.push(...removeFromHand(player, indices));
     state.dealerTrimPending = false;
+    state.lastDiscard = { playerId, out: indices.length, in: 0, seq: nextSeq };
     player.hasDiscardDecision = true;
     advanceDiscard(state);
     return;
@@ -137,6 +140,12 @@ export function applyDiscard(
   const drawn = drawCards(state, removed.length);
   player.hand.push(...drawn);
   state.discardPile.push(...removed);
+  state.lastDiscard = {
+    playerId,
+    out: removed.length,
+    in: drawn.length,
+    seq: nextSeq,
+  };
 
   // A kept-trump dealer is now at 4 cards and still owes a final discard.
   if (keptTrump && player.hand.length > 3) {

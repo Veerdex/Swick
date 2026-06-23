@@ -66,6 +66,7 @@ export interface GameView {
 
   specialHandWinner: string | null;
   specialHandType: string | null;
+  lastDiscard: { playerId: string; out: number; in: number; seq: number } | null;
 
   deckCount: number;
   /** Hand indices the viewer may legally play right now (empty if not their turn). */
