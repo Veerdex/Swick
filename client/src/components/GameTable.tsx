@@ -67,6 +67,17 @@ const SUITS: Suit[] = ["spades", "hearts", "diamonds", "clubs"];
 const NON_ACE: Rank[] = ["7", "8", "9", "10", "J", "Q", "K"];
 const RANK_ORDER: Rank[] = ["7", "8", "9", "10", "J", "Q", "K", "A"];
 const money = (cents: number) => `${cents}¢`;
+// Per-player colours (Red, Orange, Yellow, Green, Blue, Purple), assigned by
+// seat order. Each player's cards and name badge wear their colour so it's easy
+// to track who's who around the table.
+const PLAYER_COLORS = [
+  "#ef4444", // red
+  "#f97316", // orange
+  "#facc15", // yellow
+  "#4ade80", // green
+  "#3b82f6", // blue
+  "#a855f7", // purple
+];
 const SPECIAL_LABEL: Record<string, string> = {
   "three-aces": "Three Aces",
   "three-sevens": "Three Sevens",
@@ -177,6 +188,7 @@ function Seat({
   playable = false,
   legalPlays,
   onPlay,
+  color,
 }: {
   player: PlayerView;
   pos: Pos;
@@ -184,6 +196,8 @@ function Seat({
   hand: CardSlot[];
   anim: "deal" | "flip" | "none";
   dimmed: boolean;
+  /** The player's tracking colour (name outline + card borders). */
+  color: string;
   /** When true the cards are tappable for the discard/swap selection. */
   selecting?: boolean;
   selected?: Set<number>;
@@ -225,10 +239,16 @@ function Seat({
         </span>
       )}
       <span
-        className={`rounded px-2 py-0.5 font-semibold drop-shadow ${
-          isTurn ? "bg-amber-400/90 text-black ring-2 ring-amber-300" : "bg-black/35"
-        } ${player.isDealer && !isTurn ? "text-amber-300" : isTurn ? "" : "text-white"}`}
-        style={{ fontSize: `calc(var(--cu, 40px) * ${isUser ? 0.35 : 0.3})` }}
+        className="rounded px-2 py-0.5 font-semibold drop-shadow"
+        style={{
+          fontSize: `calc(var(--cu, 40px) * ${isUser ? 0.35 : 0.3})`,
+          border: `2px solid ${color}`,
+          // On their turn the badge fills with their colour and glows; otherwise
+          // it's a dark badge outlined in their colour.
+          backgroundColor: isTurn ? color : "rgba(0,0,0,0.4)",
+          color: isTurn ? "#15130c" : "#fff",
+          boxShadow: isTurn ? `0 0 12px ${color}` : undefined,
+        }}
       >
         {player.name}
       </span>
@@ -268,7 +288,7 @@ function Seat({
               } ${locked || illegalPlay ? "opacity-40" : ""}`}
               style={{ marginLeft: i === 0 ? 0 : spacing, animationDelay: delay }}
             >
-              <Card card={c} size={size} highlight={isSel} />
+              <Card card={c} size={size} highlight={isSel} color={color} />
             </button>
           );
         })}
@@ -309,6 +329,9 @@ export default function GameTable({ room }: { room: RoomView }) {
     out: number;
     in: number;
   } | null>(null);
+  // Where the turn-spotlight sits. Holds its last position so it can fade out
+  // in place (rather than vanish) when no one is on the clock.
+  const [spotPos, setSpotPos] = useState<Pos | null>(null);
   // Post-decision reveal (info text + card to dealer + flip your hand).
   const [decisionRevealed, setDecisionRevealed] = useState(false);
   const [trumpLanded, setTrumpLanded] = useState(false);
@@ -325,6 +348,30 @@ export default function GameTable({ room }: { room: RoomView }) {
     id === youId
       ? USER_POS
       : slots[others.findIndex((p) => p.id === id)] ?? { x: 50, y: 50 };
+
+  // Each player's tracking colour, assigned by seat order.
+  const colorOf = (id: string) =>
+    PLAYER_COLORS[players.findIndex((p) => p.id === id) % PLAYER_COLORS.length] ??
+    "#cbd5e1";
+
+  // Whose cards the turn-spotlight should sit on right now (live phases only).
+  const activeSeatId =
+    phase !== "live"
+      ? null
+      : state.roundState === "knock-in"
+        ? state.currentKnockPlayerId
+        : state.roundState === "discard-draw"
+          ? state.currentDiscardPlayerId
+          : state.roundState === "turns"
+            ? state.currentTurnPlayerId
+            : null;
+
+  // Glide the spotlight onto the active player's cards. It keeps its last spot
+  // when activeSeatId clears, so it fades out in place instead of jumping.
+  useEffect(() => {
+    if (activeSeatId) setSpotPos(posOf(activeSeatId));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSeatId]);
 
   // --- Deal order: dealer's left first, going clockwise ---
   const dealerIdx = players.findIndex((p) => p.id === state.dealerId);
@@ -684,6 +731,24 @@ export default function GameTable({ room }: { room: RoomView }) {
       // table stays readable. Everything sizes off this one knob.
       style={{ "--cu": "clamp(40px, 2.8vw, 100px)" } as CSSProperties}
     >
+      {/* Turn spotlight: a soft glow that glides onto the active player's cards
+          so everyone can follow whose turn it is. It sits behind the cards and
+          transitions its position when the turn moves on. */}
+      {spotPos && (
+        <div
+          className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-in-out"
+          style={{
+            left: `${spotPos.x}%`,
+            top: `calc(${spotPos.y}% + var(--cu) * 0.55)`,
+            width: "calc(var(--cu) * 8)",
+            height: "calc(var(--cu) * 5.4)",
+            background:
+              "radial-gradient(ellipse closest-side at center, rgba(255,244,205,0.80) 0%, rgba(255,238,180,0.50) 32%, rgba(255,237,175,0.22) 58%, rgba(255,237,175,0.06) 80%, rgba(255,237,175,0) 100%)",
+            opacity: activeSeatId ? 1 : 0,
+          }}
+        />
+      )}
+
       {/* Faint "Trump" + trump suit symbol, above the status text. Only once the
           trump card has actually flipped — the suit is known server-side from
           the start, but must stay hidden until the on-screen reveal. */}
@@ -806,6 +871,7 @@ export default function GameTable({ room }: { room: RoomView }) {
               playable={isUserSeat && myTurnToPlay}
               legalPlays={isUserSeat ? legalPlaySet : undefined}
               onPlay={playCard}
+              color={colorOf(p.id)}
             />
           );
         })}
@@ -827,7 +893,7 @@ export default function GameTable({ room }: { room: RoomView }) {
               className="pop-in pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
               style={{ left: `${x}%`, top: `${y}%` }}
             >
-              <Card card={card} highlight={won} />
+              <Card card={card} highlight={won} color={colorOf(playerId)} />
             </div>
           );
         })}
