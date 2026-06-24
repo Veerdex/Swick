@@ -157,6 +157,22 @@ body {
   animation: fly-to-dealer 0.8s ease-in forwards;
 }
 
+/* A discarded card flying from a seat into the deck (offset via --fx/--fy).
+   The mirror of deal-in: it ends deck-sized (scale 0.55) and fades out. */
+@keyframes fly-to-deck {
+  from {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--fx, 0), var(--fy, 0)) scale(0.55);
+    opacity: 0;
+  }
+}
+.fly-to-deck {
+  animation: fly-to-deck 0.4s ease-in forwards;
+}
+
 /* A hand card turning face-up. */
 @keyframes flip-reveal {
   from {

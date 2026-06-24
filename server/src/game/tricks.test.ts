@@ -8,7 +8,7 @@ import {
   type GameState,
   type PlayedCard,
 } from "./state.js";
-import { legalPlays, trickWinner, playCard } from "./tricks.js";
+import { legalPlays, trickWinner, playCard, finishTrick } from "./tricks.js";
 
 const C = (rank: Rank, suit: Suit): Card => ({ rank, suit });
 
@@ -162,12 +162,20 @@ test("a full trick: trump wins, winner leads next, tricksWon increments", () => 
   playCard(s, "p0", 0);
   assert.equal(s.leadSuit, "hearts");
   playCard(s, "p1", 0);
-  playCard(s, "p2", 0); // completes the trick
+  playCard(s, "p2", 0); // completes the trick -> pause
 
+  // The completed trick is held for display until finishTrick runs.
+  assert.equal(s.roundState, "trick-complete");
+  assert.equal(s.trickWinnerId, "p2");
   assert.equal(s.players.find((p) => p.id === "p2")!.tricksWon, 1);
+  assert.equal(s.currentTrick.length, 3, "trick still on the table");
+
+  finishTrick(s);
+  assert.equal(s.roundState, "turns");
   assert.equal(s.currentTurnPlayerId, "p2", "winner leads next");
   assert.equal(s.trickNumber, 2);
   assert.deepEqual(s.currentTrick, []);
+  assert.equal(s.trickWinnerId, null);
 });
 
 test("after the third trick the hand ends", () => {
@@ -180,7 +188,9 @@ test("after the third trick the hand ends", () => {
   );
   s.trickNumber = 2; // this will be the final trick
   playCard(s, "p0", 0);
-  playCard(s, "p1", 0);
+  playCard(s, "p1", 0); // completes the third trick -> pause
+  assert.equal(s.roundState, "trick-complete");
+  finishTrick(s); // ... then the hand ends
   assert.equal(s.trickNumber, 3);
   assert.equal(s.roundState, "end");
   assert.equal(s.currentTurnPlayerId, null);

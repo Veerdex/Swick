@@ -19,7 +19,7 @@ import { type PlayerState, MIN_ANTE, createPlayer } from "../game/state.js";
 import { startHand, dealerTrumpDecision } from "../game/dealing.js";
 import { applyKnock } from "../game/knockIn.js";
 import { applyDiscard } from "../game/discard.js";
-import { playCard } from "../game/tricks.js";
+import { playCard, finishTrick } from "../game/tricks.js";
 
 export type Result<T = void> =
   | { ok: true; value: T }
@@ -267,6 +267,17 @@ export class RoomManager {
     }
 
     playCard(room.state, playerId, cardIndex);
+    return ok(room);
+  }
+
+  /** End a trick-complete pause (server-driven, by room id): clear and advance. */
+  finishTrick(roomId: string): Result<Room> {
+    const room = this.getRoom(roomId);
+    if (!room) return fail("No such room");
+    if (room.state.roundState !== "trick-complete") {
+      return fail("No completed trick to finish");
+    }
+    finishTrick(room.state);
     return ok(room);
   }
 

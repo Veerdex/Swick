@@ -63,6 +63,7 @@ export interface GameView {
   trickNumber: number;
   currentTrick: PlayedCard[];
   leadSuit: Suit | null;
+  trickWinnerId: string | null;
 
   specialHandWinner: string | null;
   specialHandType: string | null;

@@ -13,22 +13,34 @@ import type {
 // --- Layout ---------------------------------------------------------------
 type Pos = { x: number; y: number }; // seat center, in % of the screen
 
-// You're always at the bottom (with larger cards). The deck sits just left of
-// center; the trump flips to its right.
+// You're always at the bottom (with larger cards). The deck + trump form one
+// cluster centered on screen: the deck sits a FIXED pixel distance left of
+// center, the trump the same distance to its right — so the gap between them
+// stays constant regardless of screen width (it would grow if measured in vw).
 const USER_POS: Pos = { x: 50, y: 80 };
-const DECK_POS: Pos = { x: 44, y: 46 };
-const TRUMP_POS: Pos = { x: 57, y: 46 };
+const CENTER: Pos = { x: 50, y: 46 }; // center of the deck/trump cluster, in %
+const HALF_GAP_PX = 65; // deck/trump each sit this many px from center (130px apart)
+const deckLeft = `calc(${CENTER.x}% - ${HALF_GAP_PX}px)`;
+const trumpLeft = `calc(${CENTER.x}% + ${HALF_GAP_PX}px)`;
+
+// Fly-delta from a seat to the deck: the seat→center span scales with the
+// viewport (vw/vh), but the deck's offset from center is the fixed pixel gap.
+const deckFly = (pos: Pos): CSSProperties =>
+  ({
+    "--fx": `calc(${CENTER.x - pos.x}vw - ${HALF_GAP_PX}px)`,
+    "--fy": `${CENTER.y - pos.y}vh`,
+  }) as CSSProperties;
 
 // Positions for the OTHER players, ordered clockwise from the user so the deal
 // travels around the table. Keyed by total player count.
 const OTHER_SLOTS: Record<number, Pos[]> = {
-  3: [{ x: 84, y: 42 }, { x: 50, y: 15 }], // right, top
-  4: [{ x: 84, y: 42 }, { x: 50, y: 15 }, { x: 16, y: 42 }], // right, top, left
+  3: [{ x: 84, y: 42 }, { x: 50, y: 11 }], // right, top
+  4: [{ x: 84, y: 42 }, { x: 50, y: 11 }, { x: 16, y: 42 }], // right, top, left
   5: [
-    { x: 85, y: 56 }, { x: 85, y: 30 }, { x: 50, y: 15 }, { x: 16, y: 42 },
+    { x: 85, y: 56 }, { x: 85, y: 30 }, { x: 50, y: 11 }, { x: 16, y: 42 },
   ], // 2 right, top, left
   6: [
-    { x: 85, y: 56 }, { x: 85, y: 30 }, { x: 50, y: 15 },
+    { x: 85, y: 56 }, { x: 85, y: 30 }, { x: 50, y: 11 },
     { x: 16, y: 30 }, { x: 16, y: 56 },
   ], // 2 right, top, 2 left
 };
@@ -42,8 +54,10 @@ const DEAL_START_MS = 3300; // after the dealer is announced (and the notice cle
 const DEAL_INTERVAL_MS = 200; // 5 cards/second
 const CARDS_EACH = 3;
 const TRUMP_PAUSE_MS = 1000; // pause after the last card before the trump flip
-const DECISION_TIMEOUT_S = 10; // auto-keep / auto-pass after this long
-const DISCARD_TIMEOUT_S = 20; // auto-accept the swap after this long
+const DECISION_TIMEOUT_S = 10; // dealer's trump keep/pass auto-decides after this
+const KNOCK_TIMEOUT_S = 15; // knock-in / pass auto-passes after this long
+const DISCARD_TIMEOUT_S = 30; // auto-accept the swap after this long (all players)
+const TRIM_TIMEOUT_S = 15; // the kept-trump dealer's second step (trim to 3)
 
 // Countdown ring geometry.
 const RING_R = 28;
@@ -52,6 +66,12 @@ const RING_CIRC = 2 * Math.PI * RING_R;
 const SUITS: Suit[] = ["spades", "hearts", "diamonds", "clubs"];
 const NON_ACE: Rank[] = ["7", "8", "9", "10", "J", "Q", "K"];
 const RANK_ORDER: Rank[] = ["7", "8", "9", "10", "J", "Q", "K", "A"];
+const money = (cents: number) => `${cents}¢`;
+const SPECIAL_LABEL: Record<string, string> = {
+  "three-aces": "Three Aces",
+  "three-sevens": "Three Sevens",
+  "akq-trump": "A-K-Q of Trump",
+};
 const rankValue = (r: Rank) => RANK_ORDER.indexOf(r);
 const sameCard = (a: CardSlot, b: CardSlot) =>
   !!a && !!b && a.rank === b.rank && a.suit === b.suit;
@@ -127,7 +147,10 @@ function CountdownRing({ seconds, total = 10 }: { seconds: number; total?: numbe
 /** A small stack of face-down cards. */
 function Deck() {
   return (
-    <div className="relative h-20 w-14">
+    <div
+      className="relative"
+      style={{ width: "calc(var(--cu, 40px) * 1.4)", height: "calc(var(--cu, 40px) * 2)" }}
+    >
       {[0, 1, 2].map((i) => (
         <div key={i} className="absolute" style={{ left: i * 2, top: i * -2 }}>
           <Card card={null} />
@@ -150,6 +173,10 @@ function Seat({
   lockedIndex = -1,
   onToggle,
   swapInCount = 0,
+  isTurn = false,
+  playable = false,
+  legalPlays,
+  onPlay,
 }: {
   player: PlayerView;
   pos: Pos;
@@ -165,15 +192,22 @@ function Seat({
   onToggle?: (i: number) => void;
   /** The last N cards just drawn — deal them in from the deck (swap animation). */
   swapInCount?: number;
+  /** Highlight this seat as the one whose turn it is (trick-taking). */
+  isTurn?: boolean;
+  /** When true the cards are tappable to play a card (your turn in a trick). */
+  playable?: boolean;
+  /** Hand indices that are legal plays right now (others are dimmed). */
+  legalPlays?: Set<number>;
+  onPlay?: (i: number) => void;
 }) {
   const size = isUser ? "md" : "sm";
-  // Your hand is spread out (at most 4 cards); opponents' cards overlap.
-  const spacing = isUser ? 8 : -16;
+  // Your hand is spread out (at most 4 cards); opponents' cards overlap. Spacing
+  // scales with the card unit so the fan looks the same at any size.
+  const spacing = isUser
+    ? "calc(var(--cu, 40px) * 0.2)"
+    : "calc(var(--cu, 40px) * -0.4)";
   // Where this seat sits relative to the deck, so cards fly in from the deck.
-  const flyStyle = {
-    "--fx": `${DECK_POS.x - pos.x}vw`,
-    "--fy": `${DECK_POS.y - pos.y}vh`,
-  } as CSSProperties;
+  const flyStyle = deckFly(pos);
   const animClass =
     anim === "deal" ? "deal-in" : anim === "flip" ? "flip-reveal" : "";
 
@@ -183,25 +217,32 @@ function Seat({
       style={{ left: `${pos.x}%`, top: `${pos.y}%`, ...flyStyle }}
     >
       {player.isDealer && (
-        <span className="text-[10px] font-bold uppercase tracking-widest text-amber-300 drop-shadow">
+        <span
+          className="font-bold uppercase tracking-widest text-amber-300 drop-shadow"
+          style={{ fontSize: "calc(var(--cu, 40px) * 0.25)" }}
+        >
           Dealer
         </span>
       )}
       <span
-        className={`rounded bg-black/35 px-2 py-0.5 font-semibold drop-shadow ${
-          isUser ? "text-sm" : "text-xs"
-        } ${player.isDealer ? "text-amber-300" : "text-white"}`}
+        className={`rounded px-2 py-0.5 font-semibold drop-shadow ${
+          isTurn ? "bg-amber-400/90 text-black ring-2 ring-amber-300" : "bg-black/35"
+        } ${player.isDealer && !isTurn ? "text-amber-300" : isTurn ? "" : "text-white"}`}
+        style={{ fontSize: `calc(var(--cu, 40px) * ${isUser ? 0.35 : 0.3})` }}
       >
         {player.name}
       </span>
       <div
-        className={`flex transition-opacity ${dimmed ? "opacity-40 grayscale" : ""}`}
+        className={`flex transition-opacity ${dimmed ? "opacity-40" : ""}`}
       >
         {hand.map((c, i) => {
-          // Selection visuals only apply to the seat that's actually selecting.
+          // Discard-selection visuals only apply while selecting.
           const locked = selecting && i === lockedIndex;
           const isSel = selecting && (selected?.has(i) ?? false);
-          const tappable = selecting && !locked;
+          // Trick-play visuals only apply when it's your turn to play.
+          const legal = playable && (legalPlays?.has(i) ?? false);
+          const illegalPlay = playable && !legal;
+          const tappable = selecting ? !locked : legal;
           // The last `swapInCount` cards just arrived — fly them in from the
           // deck, after the discards have flown out (5/sec).
           const swapInIdx = i - (hand.length - swapInCount);
@@ -217,12 +258,14 @@ function Seat({
               key={i}
               type="button"
               disabled={!tappable}
-              onClick={() => onToggle?.(i)}
-              className={`${cls} block p-0 ${
-                tappable ? "cursor-pointer transition" : "cursor-default"
+              onClick={() =>
+                tappable && (selecting ? onToggle?.(i) : onPlay?.(i))
+              }
+              className={`${cls} block p-0 transition ${
+                tappable ? "cursor-pointer" : "cursor-default"
               } ${isSel ? "-translate-y-3" : ""} ${
-                locked ? "opacity-40 grayscale" : ""
-              }`}
+                legal ? "hover:-translate-y-2" : ""
+              } ${locked || illegalPlay ? "opacity-40" : ""}`}
               style={{ marginLeft: i === 0 ? 0 : spacing, animationDelay: delay }}
             >
               <Card card={c} size={size} highlight={isSel} />
@@ -342,6 +385,22 @@ export default function GameTable({ room }: { room: RoomView }) {
   const acceptDiscard = () =>
     socket.emit("room:discard", { indices: [...selectedDiscards] }, () => {});
 
+  // --- Trick-taking ---
+  const inTricks =
+    phase === "live" &&
+    (state.roundState === "turns" || state.roundState === "trick-complete");
+  const myTurnToPlay =
+    phase === "live" &&
+    state.roundState === "turns" &&
+    state.currentTurnPlayerId === youId;
+  const legalPlaySet = new Set(state.yourLegalPlays);
+  const playCard = (index: number) => {
+    if (!myTurnToPlay || !legalPlaySet.has(index)) return;
+    socket.emit("room:playCard", { index }, () => {});
+  };
+  const isHost = room.hostId === youId;
+  const nextHand = () => socket.emit("room:nextHand", () => {});
+
   const lowestNonTrumpIndex = () => {
     let best = -1;
     let bestRank = Infinity;
@@ -365,8 +424,13 @@ export default function GameTable({ room }: { room: RoomView }) {
         ? "discard"
         : null;
   const decisionTotal =
-    (activeDecision === "discard" ? DISCARD_TIMEOUT_S : DECISION_TIMEOUT_S) +
-    (iAmDealer ? 5 : 0); // the dealer gets 5 extra seconds
+    activeDecision === "discard"
+      ? trimming
+        ? TRIM_TIMEOUT_S // dealer's forced trim-to-3 step: 15s
+        : DISCARD_TIMEOUT_S // swap step: a flat 30s for everyone, dealer included
+      : activeDecision === "knock"
+        ? KNOCK_TIMEOUT_S // knock-in / pass: a flat 15s for everyone
+        : DECISION_TIMEOUT_S + (iAmDealer ? 5 : 0); // dealer's trump decision
 
   // On timeout: dealer keeps the trump, players pass, swappers keep their cards
   // (a kept-trump dealer's forced trim drops their lowest non-trump).
@@ -508,9 +572,50 @@ export default function GameTable({ room }: { room: RoomView }) {
     }
   }, [players, youId, phase, state.roundState]);
 
-  // Once knock-in is over (everyone has chosen), clear the decision text.
+  // Catch up on knock decisions made during the deal cinematic. Bots that go
+  // before us decide server-side while we're still watching cards deal, so the
+  // per-render detector above never sees their transition (it only pops while
+  // live). When we finally reach the live knock-in, reveal those already-made
+  // decisions one at a time, in knock order, so we see what happened before us.
+  const knockCatchupDone = useRef(false);
   useEffect(() => {
-    if (state.roundState !== "knock-in") setDecisionFx({});
+    if (phase !== "live" || state.roundState !== "knock-in") return;
+    if (knockCatchupDone.current) return;
+    knockCatchupDone.current = true;
+    const dealerIdx = players.findIndex((p) => p.id === state.dealerId);
+    const order =
+      dealerIdx < 0
+        ? players
+        : Array.from(
+            { length: players.length },
+            (_, i) => players[(dealerIdx + 1 + i) % players.length],
+          ); // dealer's left first, dealer last
+    const already = order.filter((p) => p.id !== youId && p.hasKnockDecision);
+    const timers = already.map((p, i) =>
+      setTimeout(() => {
+        setDecisionFx((prev) =>
+          prev[p.id]
+            ? prev
+            : {
+                ...prev,
+                [p.id]: { knockedIn: p.knockedIn, key: Date.now() + Math.random() },
+              },
+        );
+      }, i * 500),
+    );
+    return () => timers.forEach(clearTimeout);
+    // Intentionally keyed only on the live/knock-in transition; the player
+    // snapshot is read from the closure at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, state.roundState]);
+
+  // Once knock-in is over (everyone has chosen), clear the decision text and
+  // re-arm the catch-up for the next hand.
+  useEffect(() => {
+    if (state.roundState !== "knock-in") {
+      setDecisionFx({});
+      knockCatchupDone.current = false;
+    }
   }, [state.roundState]);
 
   // Baseline on entering live, so swaps from the intro cinematic don't replay.
@@ -555,8 +660,12 @@ export default function GameTable({ room }: { room: RoomView }) {
           ? `${dealer?.name ?? "Someone"} is the dealer`
           : "";
 
+  // The "kept/denied the trump" note only belongs to the knock-in / discard
+  // phases; once tricks start it's stale, so drop it.
   const liveInfo =
-    phase === "live" && decisionRevealed
+    phase === "live" &&
+    decisionRevealed &&
+    (state.roundState === "knock-in" || state.roundState === "discard-draw")
       ? `${dealer?.name ?? "Dealer"} ${
           state.dealerKeptTrump ? "kept" : "denied"
         } the trump`
@@ -568,10 +677,23 @@ export default function GameTable({ room }: { room: RoomView }) {
   const showSelection = !showSeats;
 
   return (
-    <div className="relative min-h-[100dvh] w-full">
-      {/* Faint "Trump" + trump suit symbol, above the status text */}
-      {phase !== "waiting" && state.trumpSuit && (
-        <div className="pointer-events-none absolute left-1/2 top-[31%] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center leading-none">
+    <div
+      className="relative min-h-[100dvh] w-full"
+      // --cu (card unit) scales cards + names with the screen: it holds at the
+      // current size on normal laptops and grows on larger displays so the
+      // table stays readable. Everything sizes off this one knob.
+      style={{ "--cu": "clamp(40px, 2.8vw, 100px)" } as CSSProperties}
+    >
+      {/* Faint "Trump" + trump suit symbol, above the status text. Only once the
+          trump card has actually flipped — the suit is known server-side from
+          the start, but must stay hidden until the on-screen reveal. */}
+      {(phase === "trump" || phase === "live") && state.trumpSuit && (
+        <div
+          className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center leading-none"
+          // Anchored above the deck's top edge (CENTER.y - 1cu), so it rides up
+          // as the cards grow instead of overlapping them on larger screens.
+          style={{ top: `calc(${CENTER.y}% - var(--cu) - 110px)` }}
+        >
           <span className="text-sm font-semibold uppercase tracking-[0.3em] text-black/35">
             Trump
           </span>
@@ -583,16 +705,19 @@ export default function GameTable({ room }: { room: RoomView }) {
 
       {/* Status / info text, just above the deck (above the cards) */}
       {displayText && (
-        <p className="absolute left-1/2 top-[38%] z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-center text-2xl font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] sm:text-3xl">
+        <p
+          className="absolute left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-center text-2xl font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] sm:text-3xl"
+          style={{ top: `calc(${CENTER.y}% - var(--cu) - 40px)` }}
+        >
           {displayText}
         </p>
       )}
 
-      {/* The deck */}
-      {phase !== "waiting" && (
+      {/* The deck (hidden once trick-taking starts — the trick takes the center) */}
+      {phase !== "waiting" && !inTricks && state.roundState !== "end" && (
         <div
           className="absolute -translate-x-1/2 -translate-y-1/2"
-          style={{ left: `${DECK_POS.x}%`, top: `${DECK_POS.y}%` }}
+          style={{ left: deckLeft, top: `${CENTER.y}%` }}
         >
           <Deck />
         </div>
@@ -603,9 +728,12 @@ export default function GameTable({ room }: { room: RoomView }) {
       {showSelection && revealed.length > 0 && (
         <div
           className="absolute -translate-y-1/2"
-          style={{ left: `${DECK_POS.x + 10}%`, top: `${DECK_POS.y}%` }}
+          style={{ left: `calc(${CENTER.x}% - ${HALF_GAP_PX}px + 100px)`, top: `${CENTER.y}%` }}
         >
-          <div className="relative h-20 w-14">
+          <div
+            className="relative"
+            style={{ width: "calc(var(--cu, 40px) * 1.4)", height: "calc(var(--cu, 40px) * 2)" }}
+          >
             {revealed.map((c, i) => (
               <div
                 key={i}
@@ -666,13 +794,41 @@ export default function GameTable({ room }: { room: RoomView }) {
               isUser={isUserSeat}
               hand={hand}
               anim={anim}
-              dimmed={p.hasKnockDecision && !p.knockedIn}
+              // Only fade passed players once the deal cinematic is over —
+              // otherwise stale/ahead-of-cinematic knock flags fade cards mid-deal.
+              dimmed={phase === "live" && p.hasKnockDecision && !p.knockedIn}
               selecting={isUserSeat && myTurnToDiscard}
               selected={selectedDiscards}
               lockedIndex={isUserSeat ? trumpIndex : -1}
               onToggle={toggleDiscard}
               swapInCount={swapFx?.playerId === p.id ? swapFx.in : 0}
+              isTurn={inTricks && state.currentTurnPlayerId === p.id}
+              playable={isUserSeat && myTurnToPlay}
+              legalPlays={isUserSeat ? legalPlaySet : undefined}
+              onPlay={playCard}
             />
+          );
+        })}
+
+      {/* Cards played into the current trick, drawn between each seat and the
+          center; the winner's card is highlighted during the trick-complete pause. */}
+      {inTricks &&
+        state.currentTrick.map(({ playerId, card }) => {
+          const seat = posOf(playerId);
+          const f = 0.62; // fraction of the way from the seat to the center
+          const x = seat.x + (CENTER.x - seat.x) * f;
+          const y = seat.y + (CENTER.y - seat.y) * f;
+          const won =
+            state.roundState === "trick-complete" &&
+            state.trickWinnerId === playerId;
+          return (
+            <div
+              key={playerId}
+              className="pop-in pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${x}%`, top: `${y}%` }}
+            >
+              <Card card={card} highlight={won} />
+            </div>
           );
         })}
 
@@ -682,10 +838,7 @@ export default function GameTable({ room }: { room: RoomView }) {
         (() => {
           const pos = posOf(swapFx.playerId);
           const big = swapFx.playerId === youId;
-          const flyStyle = {
-            "--fx": `${DECK_POS.x - pos.x}vw`,
-            "--fy": `${DECK_POS.y - pos.y}vh`,
-          } as CSSProperties;
+          const flyStyle = deckFly(pos);
           return (
             <div
               className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
@@ -704,13 +857,16 @@ export default function GameTable({ room }: { room: RoomView }) {
           );
         })()}
 
-      {/* Trump card on the table (before the decision, or after a pass) */}
+      {/* Trump card on the table (before the decision, or after a pass).
+          Cleared once trick-taking starts so it doesn't clutter the trick. */}
       {(phase === "trump" || phase === "live") &&
+        !inTricks &&
+        state.roundState !== "end" &&
         state.trumpCard &&
         !(decisionRevealed && state.dealerKeptTrump) && (
           <div
             className="trump-flip absolute -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${TRUMP_POS.x}%`, top: `${TRUMP_POS.y}%` }}
+            style={{ left: trumpLeft, top: `${CENTER.y}%` }}
           >
             <Card card={state.trumpCard} highlight />
           </div>
@@ -726,10 +882,10 @@ export default function GameTable({ room }: { room: RoomView }) {
             className="fly-to-dealer absolute -translate-x-1/2 -translate-y-1/2"
             style={
               {
-                left: `${TRUMP_POS.x}%`,
-                top: `${TRUMP_POS.y}%`,
-                "--tx": `${posOf(state.dealerId ?? "").x - TRUMP_POS.x}vw`,
-                "--ty": `${posOf(state.dealerId ?? "").y - TRUMP_POS.y}vh`,
+                left: trumpLeft,
+                top: `${CENTER.y}%`,
+                "--tx": `calc(${posOf(state.dealerId ?? "").x - CENTER.x}vw - ${HALF_GAP_PX}px)`,
+                "--ty": `${posOf(state.dealerId ?? "").y - CENTER.y}vh`,
               } as CSSProperties
             }
           >
@@ -740,7 +896,7 @@ export default function GameTable({ room }: { room: RoomView }) {
       {/* Dealer's keep/pass decision — big glowing trump card, centered */}
       {showTrumpDecision && (
         <div className="fixed inset-0 z-30 flex flex-col items-center justify-center gap-6 bg-black/35">
-          <CountdownRing seconds={secondsLeft} />
+          <CountdownRing seconds={secondsLeft} total={decisionTotal} />
           <p className="text-2xl font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] sm:text-3xl">
             Keep the trump card?
           </p>
@@ -767,7 +923,7 @@ export default function GameTable({ room }: { room: RoomView }) {
       {/* Your knock-in decision */}
       {showKnockDecision && (
         <div className="fixed inset-0 z-30 flex flex-col items-center justify-center gap-7 bg-black/35">
-          <CountdownRing seconds={secondsLeft} />
+          <CountdownRing seconds={secondsLeft} total={decisionTotal} />
           <p className="text-2xl font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] sm:text-3xl">
             Knock in or pass?
           </p>
@@ -791,7 +947,7 @@ export default function GameTable({ room }: { room: RoomView }) {
       {/* Discard / swap controls (your hand stays tappable below) */}
       {myTurnToDiscard && (
         <div className="absolute left-1/2 top-[60%] z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3">
-          <CountdownRing seconds={secondsLeft} total={DISCARD_TIMEOUT_S} />
+          <CountdownRing seconds={secondsLeft} total={decisionTotal} />
           <p className="rounded bg-black/40 px-3 py-1 text-center text-sm font-semibold text-white drop-shadow sm:text-base">
             {trimming
               ? "You kept the trump — discard 1 card"
@@ -840,6 +996,93 @@ export default function GameTable({ room }: { room: RoomView }) {
             </p>
             <p className="mt-1 text-4xl font-black text-amber-300">DEALER</p>
             <p className="mt-3 text-xs text-amber-100/60">(tap to dismiss)</p>
+          </div>
+        </div>
+      )}
+
+      {/* Your-turn prompt during trick-taking */}
+      {myTurnToPlay && (
+        <p className="absolute left-1/2 top-[64%] z-20 -translate-x-1/2 -translate-y-1/2 animate-pulse whitespace-nowrap rounded bg-black/45 px-3 py-1 text-center text-sm font-semibold text-white drop-shadow sm:text-base">
+          Your turn — play a card
+        </p>
+      )}
+
+      {/* End-of-hand summary */}
+      {phase === "live" && state.roundState === "end" && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/55">
+          <div className="pop-in w-[90%] max-w-md rounded-2xl border-4 border-amber-400 bg-red-950/95 px-8 py-7 text-center shadow-2xl">
+            {state.specialHandWinner ? (
+              <>
+                <p className="text-xs uppercase tracking-widest text-amber-300/80">
+                  Special hand
+                </p>
+                <p className="mt-1 text-2xl font-black text-amber-300">
+                  {SPECIAL_LABEL[state.specialHandType ?? ""] ?? "Special hand"}
+                </p>
+                <p className="mt-1 text-base text-amber-100">
+                  {players.find((p) => p.id === state.specialHandWinner)?.name ??
+                    "Someone"}{" "}
+                  wins the pot
+                </p>
+              </>
+            ) : (
+              <p className="text-3xl font-black text-amber-300">Hand Over</p>
+            )}
+
+            <div className="mt-4 flex flex-col gap-1.5 text-left">
+              {players.map((p) => {
+                const won = p.tricksWon * (state.potValue / 3);
+                return (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between gap-3 rounded bg-black/30 px-3 py-1.5 text-sm"
+                  >
+                    <span className="font-semibold text-white">
+                      {p.name}
+                      {p.id === state.dealerId ? " (D)" : ""}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-amber-100/80">
+                        {p.tricksWon} {p.tricksWon === 1 ? "trick" : "tricks"}
+                      </span>
+                      {p.wentSet ? (
+                        <span className="rounded bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
+                          SET −{money(p.setAmount)}
+                        </span>
+                      ) : won > 0 ? (
+                        <span className="font-bold text-green-400">
+                          +{money(won)}
+                        </span>
+                      ) : (
+                        <span className="text-white/40">—</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="mt-3 text-xs text-amber-100/60">
+              Pot {money(state.potValue)}
+              {state.nextRoundPotBonus > 0
+                ? ` · ${money(state.nextRoundPotBonus)} carries to the next pot`
+                : ""}
+            </p>
+
+            <div className="mt-5">
+              {isHost ? (
+                <button
+                  onClick={nextHand}
+                  className="rounded-lg bg-gradient-to-b from-amber-300 to-amber-600 px-8 py-2.5 text-base font-bold text-red-950 shadow-lg hover:from-amber-200 hover:to-amber-500"
+                >
+                  Next hand
+                </button>
+              ) : (
+                <p className="text-sm text-amber-100/70">
+                  Waiting for the host to deal…
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}

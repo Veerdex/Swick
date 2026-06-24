@@ -106,6 +106,12 @@ export interface GameState {
   currentTrick: PlayedCard[];
   /** Suit that was led in the current trick. */
   leadSuit: Suit | null;
+  /**
+   * During the `trick-complete` pause, the id of the player who won the trick
+   * just played. The completed trick stays on the table (currentTrick is not
+   * cleared) until finishTrick() runs, so clients can show it and the winner.
+   */
+  trickWinnerId: string | null;
 
   // --- Outcomes ---
   /** Player id holding a special hand (3 Aces, 3 Sevens, A-K-Q trump). */
@@ -197,6 +203,7 @@ export function createGameState(players: PlayerState[] = []): GameState {
     trickNumber: 0,
     currentTrick: [],
     leadSuit: null,
+    trickWinnerId: null,
 
     specialHandWinner: null,
     specialHandType: null,

@@ -108,8 +108,36 @@ function driveBots(io: Server, roomId: string) {
       return;
     }
     broadcastRoom(io, room);
-    driveBots(io, roomId); // next bot, if any
+    driveTable(io, roomId); // next bot, or pause on a completed trick
   }, BOT_DELAY_MS);
+}
+
+// After a completed trick the table sits in "trick-complete" with the cards
+// still showing. Hold that for a beat so everyone sees the trick and the
+// winner, then clear it and continue.
+const TRICK_PAUSE_MS = 1600;
+const trickPending = new Set<string>();
+function scheduleTrickAdvance(io: Server, roomId: string) {
+  if (trickPending.has(roomId)) return;
+  trickPending.add(roomId);
+  setTimeout(() => {
+    trickPending.delete(roomId);
+    const res = manager.finishTrick(roomId);
+    if (!res.ok) return;
+    broadcastRoom(io, res.value);
+    driveTable(io, roomId); // next trick's bots, or the end of the hand
+  }, TRICK_PAUSE_MS);
+}
+
+/** Drive whatever the table needs next: finish a completed trick, or move bots. */
+function driveTable(io: Server, roomId: string) {
+  const room = manager.getRoom(roomId);
+  if (!room) return;
+  if (room.state.roundState === "trick-complete") {
+    scheduleTrickAdvance(io, roomId);
+  } else {
+    driveBots(io, roomId);
+  }
 }
 
 type Ack = ((response: unknown) => void) | undefined;
@@ -122,7 +150,7 @@ function settle(io: Server, res: Result<Room>, ack: Ack) {
   }
   ack?.({ ok: true });
   broadcastRoom(io, res.value);
-  driveBots(io, res.value.id);
+  driveTable(io, res.value.id);
 }
 
 /** Leave whatever room this socket is in, broadcasting to anyone still there. */

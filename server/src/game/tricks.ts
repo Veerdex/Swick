@@ -107,26 +107,43 @@ export function trickWinner(
   return best(leads).playerId;
 }
 
-/** Resolve a completed trick: award it, advance, and end the hand after three. */
+/**
+ * A trick's third card was just played: award it and PAUSE. The completed
+ * trick stays on the table (currentTrick is kept) in roundState
+ * "trick-complete" so clients can show all the cards and who won. The pause is
+ * ended by finishTrick(), which clears the trick and advances.
+ */
 function resolveTrick(state: GameState): void {
   const winnerId = trickWinner(
     state.currentTrick,
     state.trumpSuit!,
     state.leadSuit!,
   );
-  const winner = getPlayer(state, winnerId)!;
-  winner.tricksWon += 1;
+  getPlayer(state, winnerId)!.tricksWon += 1;
+  state.trickWinnerId = winnerId;
+  state.roundState = "trick-complete";
+  state.currentTurnPlayerId = null;
+}
 
-  // Played cards leave play.
+/**
+ * End the trick-complete pause: the played cards leave play, and we either
+ * start the next trick (winner leads) or, after three tricks, settle the hand.
+ */
+export function finishTrick(state: GameState): void {
+  if (state.roundState !== "trick-complete") {
+    throw new Error("No completed trick to finish");
+  }
+  const winnerId = state.trickWinnerId;
   state.discardPile.push(...state.currentTrick.map((p) => p.card));
   state.trickNumber += 1;
   state.currentTrick = [];
   state.leadSuit = null;
+  state.trickWinnerId = null;
 
   if (state.trickNumber >= 3) {
-    // Hand over: pay trick winners and settle set penalties.
-    resolveHand(state);
+    resolveHand(state); // pay trick winners and settle set penalties
   } else {
+    state.roundState = "turns";
     state.currentTurnPlayerId = winnerId; // winner leads the next trick
   }
 }

@@ -125,6 +125,7 @@ export function startHand(state: GameState): void {
   state.trickNumber = 0;
   state.currentTrick = [];
   state.leadSuit = null;
+  state.trickWinnerId = null;
 
   // 5. Dealer decides keep/pass next.
   state.roundState = "trump-selection";

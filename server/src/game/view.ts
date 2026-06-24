@@ -56,6 +56,7 @@ export interface GameView {
   trickNumber: number;
   currentTrick: GameState["currentTrick"];
   leadSuit: GameState["leadSuit"];
+  trickWinnerId: string | null;
 
   specialHandWinner: string | null;
   specialHandType: string | null;
@@ -159,6 +160,7 @@ export function viewFor(state: GameState, viewerId: string): GameView {
     trickNumber: state.trickNumber,
     currentTrick: state.currentTrick,
     leadSuit: state.leadSuit,
+    trickWinnerId: state.trickWinnerId,
 
     specialHandWinner: state.specialHandWinner,
     specialHandType: state.specialHandType,
