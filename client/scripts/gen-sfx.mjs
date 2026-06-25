@@ -56,10 +56,19 @@ function clink(b, t0, f, amp) {
   for (const [m, g] of [[1, 1], [2.76, 0.5], [5.4, 0.25]]) tone(b, f * m, t0, 0.08, { amp: amp * g, decay: 0.05 });
 }
 
+// Gentle master low-pass (~2800 Hz) rolls off harsh highs so the tonal sounds
+// (chimes, dings, the fanfare, coin clinks) read as soft rather than piercing.
+function masterLowpass(b, cut = 2800) {
+  const a = 1 - Math.exp((-2 * Math.PI * cut) / SR);
+  let y = 0;
+  for (let i = 0; i < b.length; i++) { y += a * (b[i] - y); b[i] = y; }
+}
+
 function save(name, b, peak = 0.8) {
+  masterLowpass(b);
   let m = 0; for (const v of b) m = Math.max(m, Math.abs(v));
   const g = m > 0 ? peak / m : 1;
-  const fade = Math.round(0.003 * SR);
+  const fade = Math.round(0.006 * SR); // softer onset/tail
   const out = Buffer.alloc(44 + b.length * 2);
   out.write("RIFF", 0); out.writeUInt32LE(36 + b.length * 2, 4); out.write("WAVE", 8);
   out.write("fmt ", 12); out.writeUInt32LE(16, 16); out.writeUInt16LE(1, 20); out.writeUInt16LE(1, 22);
@@ -107,5 +116,5 @@ S["player-leave.wav"] = () => { const b = buf(0.34); tone(b, 587, 0, 0.12, { amp
 S["reconnect.wav"] = () => { const b = buf(0.34); tone(b, 660, 0, 0.1, { amp: 0.4, decay: 0.08, attack: 0.008 }); tone(b, 990, 0.08, 0.14, { amp: 0.4, decay: 0.11, attack: 0.008 }); tone(b, 1320, 0.14, 0.16, { amp: 0.24, decay: 0.12 }); return [b, 0.42]; };
 
 console.log("Writing SFX to", OUT);
-for (const [name, fn] of Object.entries(S)) { const [b, peak] = fn(); save(name, b, peak); }
+for (const [name, fn] of Object.entries(S)) { const [b, peak] = fn(); save(name, b, peak * 0.85); }
 console.log(`Done — ${Object.keys(S).length} files.`);
