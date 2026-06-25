@@ -31,6 +31,18 @@ const USERNAME_MSG: Record<string, string> = {
   error: "Could not save — try again.",
 };
 
+// The menu is designed at this width; on larger screens we scale the whole
+// thing up (width, buttons, and text together) so it fills the viewport instead
+// of sitting tiny in the middle. Phones stay at scale 1.
+const BASE_WIDTH = 576; // = max-w-xl
+const MAX_SCALE = 1.9;
+function computeFit() {
+  const avail = (typeof window === "undefined" ? BASE_WIDTH : window.innerWidth) - 48; // main p-6
+  const width = Math.min(BASE_WIDTH, avail);
+  const scale = Math.min(MAX_SCALE, Math.max(1, avail / width));
+  return { width, scale };
+}
+
 export default function Lobby({ onEntered }: LobbyProps) {
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [createMode, setCreateMode] = useState<GameMode>("casual");
@@ -69,6 +81,14 @@ export default function Lobby({ onEntered }: LobbyProps) {
     const el = pagerRef.current;
     if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
   };
+
+  // Scale the whole menu to fill wider screens (text + buttons + width).
+  const [fit, setFit] = useState(computeFit);
+  useEffect(() => {
+    const onResize = () => setFit(computeFit());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     const refresh = () => socket.emit("lobby:list", (list: RoomSummary[]) => setRooms(list));
@@ -138,7 +158,21 @@ export default function Lobby({ onEntered }: LobbyProps) {
   };
 
   return (
-    <div className="flex h-[calc(100dvh-3rem)] w-full max-w-xl flex-col pt-12">
+    <div
+      className="flex w-full items-start justify-center"
+      style={{ height: "calc(100dvh - 3rem)" }}
+    >
+      <div
+        className="flex flex-col pt-12"
+        style={{
+          // Designed at BASE_WIDTH and scaled up to fill larger screens; the
+          // height is divided by the scale so it renders back to the full area.
+          width: fit.width,
+          height: `calc((100dvh - 3rem) / ${fit.scale})`,
+          transform: `scale(${fit.scale})`,
+          transformOrigin: "top center",
+        }}
+      >
       {/* Floating SWICK title */}
       <div className="flex shrink-0 flex-col items-center pt-2">
         <SwickCards variant="float" />
@@ -388,6 +422,7 @@ export default function Lobby({ onEntered }: LobbyProps) {
             {label}
           </button>
         ))}
+      </div>
       </div>
     </div>
   );
