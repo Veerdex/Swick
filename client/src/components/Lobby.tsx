@@ -120,14 +120,6 @@ export default function Lobby({ onEntered }: LobbyProps) {
     );
   };
 
-  // Reset the create form back to its defaults.
-  const cancelCreate = () => {
-    setRoomName("");
-    setCreateMode("casual");
-    setFriendsOnly(false);
-    setError(null);
-  };
-
   const joinRoom = (roomId: string) => {
     setError(null);
     socket.emit(
@@ -294,12 +286,6 @@ export default function Lobby({ onEntered }: LobbyProps) {
           />
           <button onClick={createRoom} className={`${GOLD_BTN} shrink-0`}>
             Create
-          </button>
-          <button
-            onClick={cancelCreate}
-            className="shrink-0 rounded-lg border border-amber-400/40 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-red-900/60"
-          >
-            Cancel
           </button>
         </div>
       </div>
