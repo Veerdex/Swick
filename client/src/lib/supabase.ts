@@ -30,6 +30,38 @@ export async function linkGoogle(): Promise<void> {
 }
 
 /**
+ * Sign IN with Google (as opposed to linking). Use this for a returning player
+ * whose Google account already exists — it switches to that account rather than
+ * trying to attach the identity to the current guest. Any guest-only progress is
+ * abandoned in favour of the real account.
+ */
+export async function signInWithGoogle(): Promise<void> {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.origin },
+  });
+  if (error) throw error;
+}
+
+/**
+ * Read an OAuth error returned in the URL (hash or query) after a redirect, and
+ * strip it from the address bar so it doesn't linger on reload. Returns the
+ * error code + a readable description, or null if there was none.
+ */
+export function consumeOAuthError(): { code: string; description: string } | null {
+  if (typeof window === "undefined") return null;
+  for (const raw of [window.location.hash, window.location.search]) {
+    const params = new URLSearchParams(raw.replace(/^[#?]/, ""));
+    if (!params.get("error")) continue;
+    const code = params.get("error_code") ?? params.get("error") ?? "error";
+    const description = (params.get("error_description") ?? "").replace(/\+/g, " ");
+    history.replaceState(null, "", window.location.pathname); // clear the URL
+    return { code, description };
+  }
+  return null;
+}
+
+/**
  * Ensure there's a signed-in session, creating an anonymous (guest) one the
  * first time. Returns the current access token. Casual play uses this guest
  * identity; it can later be upgraded to a real account without changing the id.

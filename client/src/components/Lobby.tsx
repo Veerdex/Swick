@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { socket } from "../lib/socket";
-import { linkGoogle } from "../lib/supabase";
+import { linkGoogle, signInWithGoogle, consumeOAuthError } from "../lib/supabase";
 import { useAuth } from "../lib/useAuth";
 import { loadProfile, setUsername } from "../lib/profile";
 import SwickCards from "./SwickCards";
@@ -38,7 +38,21 @@ export default function Lobby({ onEntered }: LobbyProps) {
   const [createMode, setCreateMode] = useState<GameMode>("casual");
   const [friendsOnly, setFriendsOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A Google sign-in/link error returned via the URL after a redirect.
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [alreadyLinked, setAlreadyLinked] = useState(false);
   const auth = useAuth();
+
+  useEffect(() => {
+    const e = consumeOAuthError();
+    if (!e) return;
+    if (e.code === "identity_already_exists") {
+      setAlreadyLinked(true);
+      setAuthNotice("That Google account already has a SWICK account — sign in with it instead.");
+    } else {
+      setAuthNotice(e.description || "Google sign-in failed. Please try again.");
+    }
+  }, []);
 
   // The player's profile (server-owned). The input edits a draft username.
   const [username, setUsernameState] = useState("");
@@ -116,6 +130,13 @@ export default function Lobby({ onEntered }: LobbyProps) {
     );
   };
 
+  const handleSignIn = () => {
+    setError(null);
+    signInWithGoogle().catch((e) =>
+      setError(e instanceof Error ? e.message : "Could not sign in"),
+    );
+  };
+
   const enterAck = (ack: ActionAck) => {
     if (ack.ok) onEntered();
     else {
@@ -148,6 +169,25 @@ export default function Lobby({ onEntered }: LobbyProps) {
       <div className="flex shrink-0 flex-col items-center pt-2">
         <SwickCards variant="float" />
       </div>
+
+      {/* A Google sign-in/link error returned via the redirect — e.g. the
+          account is already registered, so they should sign in, not link. */}
+      {authNotice && (
+        <div className={`${PANEL} mt-4 shrink-0 space-y-3 text-center`}>
+          <p className="text-sm text-amber-100/90">{authNotice}</p>
+          {alreadyLinked && (
+            <button onClick={handleSignIn} className={GOLD_BTN}>
+              Sign in with Google
+            </button>
+          )}
+          <button
+            onClick={() => setAuthNotice(null)}
+            className="block w-full text-xs text-amber-200/60 hover:text-amber-100"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Swipeable pager: one full-width, vertically-scrolling page per tab.
           flex-1 + min-h-0 lets it fill the space between the title and the
