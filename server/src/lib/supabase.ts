@@ -3,8 +3,10 @@
 // A direct call to Supabase's auth endpoint validates the token and returns the
 // user. The anon key is public; trust comes from Supabase validating the JWT.
 
-const url = process.env.SUPABASE_URL;
-const anonKey = process.env.SUPABASE_ANON_KEY;
+// Default to "" so these are typed `string` (not `string | undefined`) for use
+// in fetch headers; the check below still fails fast if they're actually unset.
+const url = process.env.SUPABASE_URL ?? "";
+const anonKey = process.env.SUPABASE_ANON_KEY ?? "";
 
 if (!url || !anonKey) {
   throw new Error(
