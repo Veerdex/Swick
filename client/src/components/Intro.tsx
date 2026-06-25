@@ -1,5 +1,6 @@
 import SwickCards from "./SwickCards";
 import { useMenuScale } from "./ScaledMenu";
+import { playSfx } from "../lib/sfx";
 
 interface IntroProps {
   /** Called when the player clicks Play to enter the lobby. */
@@ -50,7 +51,10 @@ export default function Intro({ onPlay }: IntroProps) {
             className="pointer-events-none absolute h-56 w-56 rounded-full bg-amber-300/15 blur-2xl sm:h-64 sm:w-64"
           />
           <button
-            onClick={onPlay}
+            onClick={() => {
+              playSfx("ui-enter");
+              onPlay();
+            }}
             aria-label="Play"
             className="relative z-10 transition-transform hover:scale-105 active:scale-95"
           >

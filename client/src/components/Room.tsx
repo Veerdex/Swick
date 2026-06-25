@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { socket } from "../lib/socket";
 import GameTable from "./GameTable";
 import ScaledMenu from "./ScaledMenu";
+import { playSfx } from "../lib/sfx";
 import type { ActionAck, RoomView } from "../types";
 
 interface RoomProps {
@@ -40,14 +41,30 @@ export default function Room({ room, onLeft }: RoomProps) {
     else setError(null);
   };
 
-  const setAnte = () =>
+  const setAnte = () => {
+    playSfx("ui-click");
     socket.emit("room:setAnte", { amount: Number(anteInput) }, ack);
-  const setDecisionTime = (mult: number) =>
+  };
+  const setDecisionTime = (mult: number) => {
+    playSfx("ui-click");
     socket.emit("room:setDecisionTime", { mult }, ack);
-  const toggleReady = () =>
+  };
+  const toggleReady = () => {
+    playSfx("ui-ready");
     socket.emit("room:ready", { ready: !me?.ready }, ack);
-  const startGame = () => socket.emit("room:start", ack);
-  const leave = () => socket.emit("room:leave", () => onLeft());
+  };
+  const startGame = () => {
+    playSfx("game-start");
+    socket.emit("room:start", ack);
+  };
+  const addBot = () => {
+    playSfx("ui-click");
+    socket.emit("room:addBot", ack);
+  };
+  const leave = () => {
+    playSfx("ui-click");
+    socket.emit("room:leave", () => onLeft());
+  };
 
   // Once the hand is dealt, show the game table (it renders a watcher view for
   // spectators automatically).
@@ -175,7 +192,7 @@ export default function Room({ room, onLeft }: RoomProps) {
           </h2>
           {isHost && room.mode !== "gamble" && room.state.players.length < 6 && (
             <button
-              onClick={() => socket.emit("room:addBot", ack)}
+              onClick={addBot}
               className="rounded-lg bg-slate-700 px-3 py-1 text-xs hover:bg-slate-600"
             >
               + Add bot

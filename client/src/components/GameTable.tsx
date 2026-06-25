@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { socket } from "../lib/socket";
+import { playSfx } from "../lib/sfx";
 import Card from "./Card";
 import type {
   Card as CardT,
@@ -447,8 +448,10 @@ export default function GameTable({
     state.currentTurnPlayerId === youId &&
     !!state.trumpCard;
 
-  const decideTrump = (keep: boolean) =>
+  const decideTrump = (keep: boolean) => {
+    playSfx(keep ? "commit" : "ui-click");
     socket.emit("room:keepTrump", { keep }, () => {});
+  };
 
   // The knock-in decision: shown to whoever's turn it is.
   const showKnockDecision =
@@ -456,8 +459,10 @@ export default function GameTable({
     state.roundState === "knock-in" &&
     state.currentKnockPlayerId === youId;
 
-  const decideKnock = (knock: boolean) =>
+  const decideKnock = (knock: boolean) => {
+    if (knock) playSfx("commit"); // a pass plays "fold" via the pass detector
     socket.emit("room:knock", { knock }, () => {});
+  };
 
   // The discard/swap decision (and the dealer's follow-up trim).
   const myTurnToDiscard =
@@ -473,6 +478,7 @@ export default function GameTable({
 
   const toggleDiscard = (i: number) => {
     if (!myTurnToDiscard || i === trumpIndex) return;
+    playSfx("card-select");
     if (trimming) {
       setSelectedDiscards((prev) => (prev.has(i) ? new Set() : new Set([i])));
       return;
@@ -493,6 +499,7 @@ export default function GameTable({
       setOutFx({ cards, key: Date.now() });
       setTimeout(() => setOutFx(null), 700);
     }
+    playSfx("card-shuffle");
     socket.emit("room:discard", { indices: [...selectedDiscards] }, () => {});
   };
 
@@ -765,6 +772,72 @@ export default function GameTable({
     };
   }, [activeDecision, decisionTotal, noTimers]);
 
+  // --- Sound effects: fire on the relevant transitions. Refs hold the previous
+  // value so nothing plays on the initial mount (e.g. joining/reconnecting). ---
+  const sfxDealt = useRef(dealtCount);
+  useEffect(() => {
+    if (phase === "dealing" && dealtCount > sfxDealt.current && dealtCount <= n * CARDS_EACH) {
+      playSfx("card-deal", { volume: 0.7, rate: 0.95 + Math.random() * 0.2 });
+    }
+    sfxDealt.current = dealtCount;
+  }, [dealtCount, phase, n]);
+
+  useEffect(() => {
+    if (showDealerPopup) playSfx("dealer", { volume: 0.8 });
+  }, [showDealerPopup]);
+
+  useEffect(() => {
+    if (phase === "trump") playSfx("card-flip");
+  }, [phase]);
+
+  const sfxDecision = useRef(activeDecision);
+  useEffect(() => {
+    if (!sfxDecision.current && activeDecision) playSfx("your-turn", { volume: 0.7 });
+    sfxDecision.current = activeDecision;
+  }, [activeDecision]);
+
+  const sfxTrickLen = useRef(state.currentTrick.length);
+  useEffect(() => {
+    if (state.currentTrick.length > sfxTrickLen.current) playSfx("card-play");
+    sfxTrickLen.current = state.currentTrick.length;
+  }, [state.currentTrick.length]);
+
+  const sfxRound = useRef(state.roundState);
+  useEffect(() => {
+    const prev = sfxRound.current;
+    sfxRound.current = state.roundState;
+    if (state.roundState === prev) return;
+    if (state.roundState === "trick-complete") playSfx("trick-win");
+    else if (state.roundState === "end") {
+      if (state.specialHandWinner) playSfx("special-hand");
+      else if (players.some((p) => p.wentSet)) playSfx("set");
+      else playSfx("payout");
+    }
+  }, [state.roundState, state.specialHandWinner, players]);
+
+  const sfxSeconds = useRef(secondsLeft);
+  useEffect(() => {
+    if (!noTimers && activeDecision && secondsLeft >= 1 && secondsLeft <= 3 && secondsLeft < sfxSeconds.current) {
+      playSfx("timer-tick", { volume: 0.6 });
+    }
+    sfxSeconds.current = secondsLeft;
+  }, [secondsLeft, noTimers, activeDecision]);
+
+  const sfxConn = useRef<Record<string, boolean>>({});
+  useEffect(() => {
+    const had = sfxConn.current;
+    const known = Object.keys(had).length > 0;
+    const cur: Record<string, boolean> = {};
+    for (const p of players) {
+      cur[p.id] = p.connected;
+      if (!(p.id in had)) {
+        if (known) playSfx("player-join", { volume: 0.7 });
+      } else if (!had[p.id] && p.connected) playSfx("reconnect", { volume: 0.7 });
+      else if (had[p.id] && !p.connected) playSfx("player-leave", { volume: 0.7 });
+    }
+    sfxConn.current = cur;
+  }, [players]);
+
   // Clear the discard selection when the turn or trim step changes.
   useEffect(() => {
     setSelectedDiscards(new Set());
@@ -785,7 +858,10 @@ export default function GameTable({
         newly[p.id] = { knockedIn: p.knockedIn, key: Date.now() + Math.random() };
       }
       // Anyone who passes (you included) sends their cards back to the deck.
-      if (newlyDecided && !p.knockedIn) flyPassCards(p.id, p.handCount);
+      if (newlyDecided && !p.knockedIn) {
+        flyPassCards(p.id, p.handCount);
+        playSfx("fold");
+      }
       prevDecided.current[p.id] = p.hasKnockDecision;
     }
     if (Object.keys(newly).length) {

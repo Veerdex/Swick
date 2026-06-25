@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { socket, connectWithAuth } from "./lib/socket";
 import { useBackgroundMusic } from "./lib/useBackgroundMusic";
 import { usePreventZoom } from "./lib/usePreventZoom";
+import { initSfx } from "./lib/sfx";
 import Frame from "./components/Frame";
 import Intro from "./components/Intro";
 import Lobby from "./components/Lobby";
 import Room from "./components/Room";
+import SfxControl from "./components/SfxControl";
 import type { RoomView } from "./types";
 
 // Phase 4: lobby & room system. App switches between the lobby (browse/create/
@@ -23,6 +25,7 @@ export default function App() {
   // Sign in (anonymously for guests) and connect the socket once on load.
   useEffect(() => {
     connectWithAuth().catch((err) => console.error("Auth/connect failed:", err));
+    initSfx(); // preload sound effects + unlock audio on first input
   }, []);
 
   // Lock page scrolling while the intro is on screen.
@@ -83,6 +86,9 @@ export default function App() {
           {musicOn ? "🔊" : "🔇"}
         </button>
       )}
+
+      {/* Sound-effects control — under the music toggle, hidden during intro. */}
+      {!showIntro && <SfxControl />}
 
       {showIntro ? (
         <Intro onPlay={() => setShowIntro(false)} />

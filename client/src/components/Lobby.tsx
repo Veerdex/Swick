@@ -6,6 +6,7 @@ import { loadProfile, setUsername } from "../lib/profile";
 import SwickCards from "./SwickCards";
 import Friends from "./Friends";
 import ScaledMenu from "./ScaledMenu";
+import { playSfx } from "../lib/sfx";
 import type { ActionAck, GameMode, RoomSummary } from "../types";
 
 // Shared casino styling: deep-red panels with a gold border, gold-bordered
@@ -67,6 +68,7 @@ export default function Lobby({ onEntered }: LobbyProps) {
   };
 
   const goTo = (i: number) => {
+    playSfx("swipe");
     const el = pagerRef.current;
     if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
   };
@@ -100,8 +102,10 @@ export default function Lobby({ onEntered }: LobbyProps) {
     if (result === "ok") {
       setUsernameState(draft.trim());
       setNameMsg("Saved!");
+      playSfx("ui-ready");
     } else {
       setNameMsg(USERNAME_MSG[result] ?? "Could not save.");
+      playSfx("error");
     }
   };
 
@@ -112,31 +116,30 @@ export default function Lobby({ onEntered }: LobbyProps) {
     );
   };
 
+  const enterAck = (ack: ActionAck) => {
+    if (ack.ok) onEntered();
+    else {
+      setError(ack.error ?? "Failed");
+      playSfx("error");
+    }
+  };
+
   const createRoom = () => {
     setError(null);
-    socket.emit(
-      "room:create",
-      { mode: createMode, friendsOnly },
-      (ack: ActionAck) => (ack.ok ? onEntered() : setError(ack.error ?? "Failed")),
-    );
+    playSfx("ui-click");
+    socket.emit("room:create", { mode: createMode, friendsOnly }, enterAck);
   };
 
   const joinRoom = (roomId: string) => {
     setError(null);
-    socket.emit(
-      "room:join",
-      { roomId },
-      (ack: ActionAck) => (ack.ok ? onEntered() : setError(ack.error ?? "Failed")),
-    );
+    playSfx("ui-click");
+    socket.emit("room:join", { roomId }, enterAck);
   };
 
   const spectateRoom = (roomId: string) => {
     setError(null);
-    socket.emit(
-      "room:spectate",
-      { roomId },
-      (ack: ActionAck) => (ack.ok ? onEntered() : setError(ack.error ?? "Failed")),
-    );
+    playSfx("ui-click");
+    socket.emit("room:spectate", { roomId }, enterAck);
   };
 
   return (

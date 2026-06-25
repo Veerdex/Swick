@@ -7,6 +7,7 @@ import {
   type Friend,
   type AddFriendResult,
 } from "../lib/friends";
+import { playSfx } from "../lib/sfx";
 
 const PANEL = "rounded-xl border border-amber-400/50 bg-red-950/70 p-4 shadow-lg";
 const INPUT =
@@ -43,7 +44,12 @@ export default function Friends() {
     setBusy(false);
     setFriends(friends);
     setMsg(ADD_MSG[result]);
-    if (result === "sent" || result === "accepted") setDraft("");
+    if (result === "sent" || result === "accepted") {
+      setDraft("");
+      playSfx("ui-ready");
+    } else {
+      playSfx("error");
+    }
   };
 
   const accepted = friends.filter((f) => f.status === "accepted");
@@ -94,13 +100,19 @@ export default function Friends() {
                 <span className="text-sm text-amber-50">{f.username}</span>
                 <span className="flex gap-2">
                   <button
-                    onClick={() => respondFriend(f.id, true).then(setFriends)}
+                    onClick={() => {
+                      playSfx("ui-ready");
+                      respondFriend(f.id, true).then(setFriends);
+                    }}
                     className="rounded bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-500"
                   >
                     Accept
                   </button>
                   <button
-                    onClick={() => respondFriend(f.id, false).then(setFriends)}
+                    onClick={() => {
+                      playSfx("ui-click");
+                      respondFriend(f.id, false).then(setFriends);
+                    }}
                     className="rounded bg-slate-700 px-2.5 py-1 text-xs font-semibold text-amber-100 hover:bg-slate-600"
                   >
                     Decline
@@ -130,7 +142,10 @@ export default function Friends() {
               >
                 <span className="text-sm text-amber-50">{f.username}</span>
                 <button
-                  onClick={() => removeFriend(f.id).then(setFriends)}
+                  onClick={() => {
+                    playSfx("ui-click");
+                    removeFriend(f.id).then(setFriends);
+                  }}
                   className="text-xs text-red-300 hover:text-red-200"
                 >
                   remove
@@ -157,7 +172,10 @@ export default function Friends() {
                   {f.username} <span className="text-amber-200/50">· awaiting reply</span>
                 </span>
                 <button
-                  onClick={() => removeFriend(f.id).then(setFriends)}
+                  onClick={() => {
+                    playSfx("ui-click");
+                    removeFriend(f.id).then(setFriends);
+                  }}
                   className="text-xs text-amber-200/70 hover:text-amber-100"
                 >
                   cancel
