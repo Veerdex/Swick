@@ -4,6 +4,7 @@ import { linkGoogle } from "../lib/supabase";
 import { useAuth } from "../lib/useAuth";
 import { loadProfile, setUsername } from "../lib/profile";
 import SwickCards from "./SwickCards";
+import Friends from "./Friends";
 import type { ActionAck, GameMode, RoomSummary } from "../types";
 
 // Shared casino styling: deep-red panels with a gold border, gold-bordered
@@ -164,6 +165,9 @@ export default function Lobby({ onEntered }: LobbyProps) {
           )}
         </div>
       )}
+
+      {/* Friends — accounts only (guests have no stable identity) */}
+      {auth.ready && !auth.isGuest && <Friends />}
 
       {/* Create a table */}
       <div className={PANEL}>

@@ -19,15 +19,18 @@ type Pos = { x: number; y: number }; // seat center, in % of the screen
 // stays constant regardless of screen width (it would grow if measured in vw).
 const USER_POS: Pos = { x: 50, y: 80 };
 const CENTER: Pos = { x: 50, y: 46 }; // center of the deck/trump cluster, in %
-const HALF_GAP_PX = 65; // deck/trump each sit this many px from center (130px apart)
-const deckLeft = `calc(${CENTER.x}% - ${HALF_GAP_PX}px)`;
-const trumpLeft = `calc(${CENTER.x}% + ${HALF_GAP_PX}px)`;
+// Deck/trump each sit this far left/right of center. Expressed in card units
+// (--cu) so the gap shrinks with the cards on narrow screens — at the max card
+// size (--cu = 100px) this is 65px, matching the original fixed offset.
+const HALF_GAP = "var(--cu, 40px) * 0.65";
+const deckLeft = `calc(${CENTER.x}% - ${HALF_GAP})`;
+const trumpLeft = `calc(${CENTER.x}% + ${HALF_GAP})`;
 
 // Fly-delta from a seat to the deck: the seat→center span scales with the
-// viewport (vw/vh), but the deck's offset from center is the fixed pixel gap.
+// viewport (vw/vh), and the deck's offset from center scales with the cards.
 const deckFly = (pos: Pos): CSSProperties =>
   ({
-    "--fx": `calc(${CENTER.x - pos.x}vw - ${HALF_GAP_PX}px)`,
+    "--fx": `calc(${CENTER.x - pos.x}vw - ${HALF_GAP})`,
     "--fy": `${CENTER.y - pos.y}vh`,
   }) as CSSProperties;
 
@@ -989,7 +992,7 @@ export default function GameTable({
       {showSelection && revealed.length > 0 && (
         <div
           className="absolute -translate-y-1/2"
-          style={{ left: `calc(${CENTER.x}% - ${HALF_GAP_PX}px + 100px)`, top: `${CENTER.y}%` }}
+          style={{ left: `calc(${CENTER.x}% - ${HALF_GAP} + var(--cu, 40px))`, top: `${CENTER.y}%` }}
         >
           <div
             className="relative"
@@ -1237,7 +1240,7 @@ export default function GameTable({
               {
                 left: trumpLeft,
                 top: `${CENTER.y}%`,
-                "--tx": `calc(${posOf(state.dealerId ?? "").x - CENTER.x}vw - ${HALF_GAP_PX}px)`,
+                "--tx": `calc(${posOf(state.dealerId ?? "").x - CENTER.x}vw - ${HALF_GAP})`,
                 "--ty": `${posOf(state.dealerId ?? "").y - CENTER.y}vh`,
               } as CSSProperties
             }

@@ -13,7 +13,14 @@ import {
   botDiscardDecision,
   botPlayDecision,
 } from "../game/bots.js";
-import { setUsername, setCurrency } from "../lib/db.js";
+import {
+  setUsername,
+  setCurrency,
+  listFriends,
+  addFriend,
+  respondFriend,
+  removeFriend,
+} from "../lib/db.js";
 import type { GameMode } from "../rooms/room.js";
 
 // One shared manager for the whole server process (in-memory state).
@@ -291,6 +298,54 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
       }
     },
   );
+
+  // --- Friends (accounts only — guests have no stable identity) ------------
+
+  socket.on("friends:list", async (ack: Ack) => {
+    if (isGuest()) return ack?.({ ok: false, error: "Sign in to add friends" });
+    try {
+      ack?.({ ok: true, friends: await listFriends(userId) });
+    } catch (err) {
+      console.error("friends:list failed:", err);
+      ack?.({ ok: false, error: "error" });
+    }
+  });
+
+  socket.on("friends:add", async (payload: { username?: string }, ack: Ack) => {
+    if (isGuest()) return ack?.({ ok: false, error: "Sign in to add friends" });
+    try {
+      const result = await addFriend(userId, String(payload?.username ?? ""));
+      ack?.({ ok: true, result, friends: await listFriends(userId) });
+    } catch (err) {
+      console.error("friends:add failed:", err);
+      ack?.({ ok: false, error: "error" });
+    }
+  });
+
+  socket.on(
+    "friends:respond",
+    async (payload: { userId?: string; accept?: boolean }, ack: Ack) => {
+      if (isGuest()) return ack?.({ ok: false, error: "Sign in to add friends" });
+      try {
+        await respondFriend(userId, String(payload?.userId ?? ""), !!payload?.accept);
+        ack?.({ ok: true, friends: await listFriends(userId) });
+      } catch (err) {
+        console.error("friends:respond failed:", err);
+        ack?.({ ok: false, error: "error" });
+      }
+    },
+  );
+
+  socket.on("friends:remove", async (payload: { userId?: string }, ack: Ack) => {
+    if (isGuest()) return ack?.({ ok: false, error: "Sign in to add friends" });
+    try {
+      await removeFriend(userId, String(payload?.userId ?? ""));
+      ack?.({ ok: true, friends: await listFriends(userId) });
+    } catch (err) {
+      console.error("friends:remove failed:", err);
+      ack?.({ ok: false, error: "error" });
+    }
+  });
 
   socket.on("room:leave", (ack: Ack) => {
     handleLeave(io, socket);

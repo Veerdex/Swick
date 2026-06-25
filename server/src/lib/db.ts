@@ -11,7 +11,9 @@ if (!url || !serviceKey) {
   );
 }
 
-const REST = `${url}/rest/v1/profiles`;
+const BASE = `${url}/rest/v1`;
+const REST = `${BASE}/profiles`;
+const FRIENDS = `${BASE}/friendships`;
 const headers = {
   apikey: serviceKey,
   Authorization: `Bearer ${serviceKey}`,
@@ -109,4 +111,115 @@ export async function setUsername(
   if (res.status === 409) return "taken"; // unique violation
   if (res.status === 400) return "invalid"; // check constraint
   throw new Error(`setUsername ${res.status}`);
+}
+
+// --- Friends ---------------------------------------------------------------
+
+export interface Friend {
+  id: string;
+  username: string;
+  status: "pending" | "accepted";
+  /** For pending only: true if they sent the request to me (I can accept). */
+  incoming: boolean;
+}
+
+interface FriendshipRow {
+  user_id: string;
+  friend_id: string;
+  status: "pending" | "accepted";
+}
+
+/** List a user's friends and pending requests (both directions). */
+export async function listFriends(userId: string): Promise<Friend[]> {
+  const res = await fetch(
+    `${FRIENDS}?or=(user_id.eq.${userId},friend_id.eq.${userId})` +
+      `&select=user_id,friend_id,status`,
+    { headers },
+  );
+  if (!res.ok) throw new Error(`listFriends ${res.status}`);
+  const rows = (await res.json()) as FriendshipRow[];
+  if (rows.length === 0) return [];
+
+  // Resolve the "other" side of each relationship, then fetch their usernames.
+  const meta = new Map<string, { status: Friend["status"]; incoming: boolean }>();
+  for (const r of rows) {
+    const otherId = r.user_id === userId ? r.friend_id : r.user_id;
+    meta.set(otherId, {
+      status: r.status,
+      incoming: r.friend_id === userId && r.status === "pending",
+    });
+  }
+
+  const ids = [...meta.keys()];
+  const nameRes = await fetch(
+    `${REST}?id=in.(${ids.join(",")})&select=id,username`,
+    { headers },
+  );
+  if (!nameRes.ok) throw new Error(`listFriends names ${nameRes.status}`);
+  const names = (await nameRes.json()) as { id: string; username: string }[];
+  const nameById = new Map(names.map((n) => [n.id, n.username]));
+
+  return ids.map((id) => ({
+    id,
+    username: nameById.get(id) ?? "(unknown)",
+    status: meta.get(id)!.status,
+    incoming: meta.get(id)!.incoming,
+  }));
+}
+
+export type AddFriendResult =
+  | "sent"
+  | "accepted"
+  | "already_friends"
+  | "already_pending"
+  | "self"
+  | "not_found";
+
+/** Send a friend request by username (atomic; auto-accepts a reverse request). */
+export async function addFriend(
+  userId: string,
+  targetUsername: string,
+): Promise<AddFriendResult> {
+  const res = await fetch(`${BASE}/rpc/friend_request`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ requester: userId, target_name: targetUsername.trim() }),
+  });
+  if (!res.ok) throw new Error(`addFriend ${res.status}`);
+  return (await res.json()) as AddFriendResult;
+}
+
+/** Accept or decline a pending request that `otherId` sent to `userId`. */
+export async function respondFriend(
+  userId: string,
+  otherId: string,
+  accept: boolean,
+): Promise<"ok" | "not_found"> {
+  const filter = `?user_id=eq.${otherId}&friend_id=eq.${userId}&status=eq.pending`;
+  const res = accept
+    ? await fetch(`${FRIENDS}${filter}`, {
+        method: "PATCH",
+        headers: { ...headers, Prefer: "return=representation" },
+        body: JSON.stringify({ status: "accepted" }),
+      })
+    : await fetch(`${FRIENDS}${filter}`, {
+        method: "DELETE",
+        headers: { ...headers, Prefer: "return=representation" },
+      });
+  if (!res.ok) throw new Error(`respondFriend ${res.status}`);
+  const affected = (await res.json()) as unknown[];
+  return affected.length > 0 ? "ok" : "not_found";
+}
+
+/** Remove a friendship (or cancel a pending request) between two users. */
+export async function removeFriend(
+  userId: string,
+  otherId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${FRIENDS}?or=(and(user_id.eq.${userId},friend_id.eq.${otherId}),` +
+      `and(user_id.eq.${otherId},friend_id.eq.${userId}))`,
+    { method: "DELETE", headers },
+  );
+  if (!res.ok) throw new Error(`removeFriend ${res.status}`);
 }
