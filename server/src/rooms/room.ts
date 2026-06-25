@@ -16,12 +16,20 @@ export const MAX_PLAYERS = 6;
 /** Casual = ephemeral 1000 each game; gamble = your real account currency. */
 export type GameMode = "casual" | "gamble";
 
+/** Someone watching the table (not seated, can't see hands or act). */
+export interface Spectator {
+  id: string;
+  name: string;
+}
+
 export interface Room {
   id: string;
   name: string;
   /** Player id of the host (sets ante, starts the game). */
   hostId: string;
   mode: GameMode;
+  /** Watchers — they receive a fully hidden-hand view and take no actions. */
+  spectators: Spectator[];
   /** Once true, the room no longer appears in the joinable lobby list. */
   started: boolean;
   createdAt: number;
@@ -36,6 +44,7 @@ export interface RoomSummary {
   mode: GameMode;
   playerCount: number;
   maxPlayers: number;
+  spectatorCount: number;
   /** Current pot — a gamble table needs more than this to join. */
   pot: number;
   started: boolean;
@@ -52,6 +61,7 @@ export function createRoom(
     name: name.trim() || "SWICK Table",
     hostId: host.id,
     mode,
+    spectators: [],
     started: false,
     createdAt: Date.now(),
     state: createGameState([host]),
@@ -65,6 +75,7 @@ export function roomSummary(room: Room): RoomSummary {
     mode: room.mode,
     playerCount: room.state.players.length,
     maxPlayers: MAX_PLAYERS,
+    spectatorCount: room.spectators.length,
     pot: room.state.potValue,
     started: room.started,
   };

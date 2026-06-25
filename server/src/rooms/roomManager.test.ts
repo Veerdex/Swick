@@ -66,7 +66,7 @@ test("joinRoom rejects unknown rooms and started games", () => {
   assert.equal(mgr.joinRoom(room.id, createPlayer("late", "Late")).ok, false);
 });
 
-test("listRooms shows joinable rooms and hides full/started ones", () => {
+test("listRooms shows live tables (including in-progress, for spectating)", () => {
   const { mgr, room } = withRoom();
   assert.equal(mgr.listRooms().length, 1);
   assert.equal(mgr.listRooms()[0].playerCount, 1);
@@ -75,7 +75,9 @@ test("listRooms shows joinable rooms and hides full/started ones", () => {
   mgr.setReady("host", true);
   fillReady(mgr, room, 2);
   mgr.startGame("host");
-  assert.equal(mgr.listRooms().length, 0, "started room is hidden");
+  // Started rooms stay listed so they can be watched; the client gates Join.
+  assert.equal(mgr.listRooms().length, 1);
+  assert.equal(mgr.listRooms()[0].started, true);
 });
 
 test("setAnte: host only, integer >= minimum, sets the flag", () => {

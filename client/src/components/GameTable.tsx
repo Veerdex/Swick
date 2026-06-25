@@ -311,7 +311,10 @@ export default function GameTable({
   const me = players.find((p) => p.id === youId);
   const iAmDealer = state.dealerId === youId;
 
-  const [phase, setPhase] = useState<Phase>("waiting");
+  // Spectators skip the deal cinematic and watch the live state immediately.
+  const [phase, setPhase] = useState<Phase>(() =>
+    room.isSpectator ? "live" : "waiting",
+  );
   const [sequence, setSequence] = useState<CardT[]>([]);
   const [revealCount, setRevealCount] = useState(0);
   const [showDealerPopup, setShowDealerPopup] = useState(false);
@@ -360,14 +363,18 @@ export default function GameTable({
   const revealed = sequence.slice(0, revealCount);
 
   // --- Seat layout (you at the bottom, others clockwise) ---
-  const userIdx = players.findIndex((p) => p.id === youId);
+  // A spectator has no seat, so anchor the bottom on the first player instead;
+  // every hand is already hidden for them, so it reads as a neutral watcher view.
+  const isSpectator = room.isSpectator;
+  const anchorId = isSpectator ? (players[0]?.id ?? "") : youId;
+  const userIdx = players.findIndex((p) => p.id === anchorId);
   const others = [
     ...players.slice(userIdx + 1),
     ...players.slice(0, userIdx),
   ];
   const slots = OTHER_SLOTS[n] ?? OTHER_SLOTS[6];
   const posOf = (id: string): Pos =>
-    id === youId
+    id === anchorId
       ? USER_POS
       : slots[others.findIndex((p) => p.id === id)] ?? { x: 50, y: 50 };
 
@@ -570,9 +577,10 @@ export default function GameTable({
 
   // --- Timeline ---
   useEffect(() => {
+    if (isSpectator) return; // watchers stay on the live state, no cinematic
     const t = setTimeout(() => setPhase("selecting"), WAITING_MS);
     return () => clearTimeout(t);
-  }, []);
+  }, [isSpectator]);
 
   useEffect(() => {
     if (phase !== "selecting") return;
@@ -690,7 +698,8 @@ export default function GameTable({
   // End-screen idle timeout: count down and kick the player if they don't act.
   // Cancels automatically when the next hand starts (roundState leaves "end").
   useEffect(() => {
-    if (phase !== "live" || state.roundState !== "end") return;
+    // Spectators aren't on the clock, so they're never auto-kicked.
+    if (phase !== "live" || state.roundState !== "end" || isSpectator) return;
     setEndSeconds(END_KICK_S);
     const start = Date.now();
     const id = setInterval(() => {
@@ -702,7 +711,7 @@ export default function GameTable({
       }
     }, 250);
     return () => clearInterval(id);
-  }, [phase, state.roundState]);
+  }, [phase, state.roundState, isSpectator]);
 
   // Decision countdown: tick the number, then auto-act at zero.
   useEffect(() => {
@@ -886,6 +895,21 @@ export default function GameTable({
           >
             {money(state.potValue)}
           </span>
+        </div>
+      )}
+
+      {/* Spectator banner — watchers can leave at any time. */}
+      {isSpectator && (
+        <div className="fixed left-1/2 top-3 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full bg-black/55 px-4 py-1.5">
+          <span className="text-sm font-bold uppercase tracking-wide text-amber-300">
+            Spectating
+          </span>
+          <button
+            onClick={() => onLeave?.()}
+            className="rounded bg-slate-700 px-3 py-1 text-xs font-semibold hover:bg-slate-600"
+          >
+            Leave
+          </button>
         </div>
       )}
 
@@ -1386,9 +1410,11 @@ export default function GameTable({
           >
             {isHost ? "Play Again?" : "Waiting…"}
           </button>
-          <p className="mt-1 text-sm font-semibold text-amber-100/70 drop-shadow">
-            Leaving in {endSeconds}s
-          </p>
+          {!isSpectator && (
+            <p className="mt-1 text-sm font-semibold text-amber-100/70 drop-shadow">
+              Leaving in {endSeconds}s
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -25,9 +25,13 @@ function roomStateFor(room: Room, viewerId: string) {
     id: room.id,
     name: room.name,
     hostId: room.hostId,
+    mode: room.mode,
     started: room.started,
     canStart: manager.canStart(room),
     youId: viewerId,
+    // A spectator isn't in state.players, so viewFor already hides every hand;
+    // this flag just tells the client to render the watcher UI.
+    isSpectator: room.spectators.some((s) => s.id === viewerId),
     state: viewFor(room.state, viewerId),
   };
 }
@@ -40,6 +44,9 @@ function roomStateFor(room: Room, viewerId: string) {
 function broadcastRoom(io: Server, room: Room) {
   for (const player of room.state.players) {
     io.to(player.id).emit("room:state", roomStateFor(room, player.id));
+  }
+  for (const watcher of room.spectators) {
+    io.to(watcher.id).emit("room:state", roomStateFor(room, watcher.id));
   }
 }
 
@@ -245,6 +252,16 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     const player = createPlayer(userId, nameOf());
     if (room?.mode === "gamble") player.money = balance();
     const res = manager.joinRoom(payload?.roomId ?? "", player);
+    if (!res.ok) return ack?.({ ok: false, error: res.error });
+
+    socket.join(res.value.id);
+    ack?.({ ok: true, roomId: res.value.id });
+    broadcastRoom(io, res.value);
+    broadcastLobby(io);
+  });
+
+  socket.on("room:spectate", (payload: { roomId?: string }, ack: Ack) => {
+    const res = manager.spectate(payload?.roomId ?? "", userId, nameOf());
     if (!res.ok) return ack?.({ ok: false, error: res.error });
 
     socket.join(res.value.id);

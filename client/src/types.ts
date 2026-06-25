@@ -8,6 +8,7 @@ export interface RoomSummary {
   mode: GameMode;
   playerCount: number;
   maxPlayers: number;
+  spectatorCount: number;
   /** Current pot — a gamble table needs your balance to exceed this to join. */
   pot: number;
   started: boolean;
@@ -84,10 +85,13 @@ export interface RoomView {
   id: string;
   name: string;
   hostId: string;
+  mode: GameMode;
   started: boolean;
   canStart: boolean;
   /** The viewer's own player id (matches one of state.players[].id). */
   youId: string;
+  /** True when watching (not seated) — all hands are hidden and no actions. */
+  isSpectator: boolean;
   state: GameView;
 }
 

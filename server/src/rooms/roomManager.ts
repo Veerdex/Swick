@@ -59,8 +59,9 @@ export class RoomManager {
 
   /** Rooms that can still be joined (not started, not full). */
   listRooms(): RoomSummary[] {
+    // All live tables — in-progress ones can still be spectated (the client
+    // gates the Join button on started/full).
     return [...this.rooms.values()]
-      .filter((r) => !r.started && r.state.players.length < MAX_PLAYERS)
       .sort((a, b) => a.createdAt - b.createdAt)
       .map(roomSummary);
   }
@@ -95,6 +96,17 @@ export class RoomManager {
     return ok(room);
   }
 
+  /** Join a room as a watcher (any table, including in-progress ones). */
+  spectate(roomId: string, userId: string, name: string): Result<Room> {
+    const room = this.rooms.get(roomId);
+    if (!room) return fail("Room not found");
+    if (this.playerRoom.has(userId)) return fail("You are already in a room");
+
+    room.spectators.push({ id: userId, name });
+    this.playerRoom.set(userId, roomId);
+    return ok(room);
+  }
+
   /**
    * Remove a player from their room. The room is closed once no humans remain
    * (bots can't host); otherwise the host, if they left, passes to another
@@ -108,12 +120,19 @@ export class RoomManager {
     const room = this.rooms.get(roomId);
     if (!room) return { closed: false };
 
+    // A watcher leaving just drops out of the spectator list.
+    if (room.spectators.some((s) => s.id === playerId)) {
+      room.spectators = room.spectators.filter((s) => s.id !== playerId);
+      return { room, closed: false };
+    }
+
     room.state.players = room.state.players.filter((p) => p.id !== playerId);
 
     const humans = room.state.players.filter((p) => !p.isBot);
     if (humans.length === 0) {
-      // No humans left — close the room and release any bots.
+      // No humans left — close the room and release any bots + watchers.
       for (const p of room.state.players) this.playerRoom.delete(p.id);
+      for (const s of room.spectators) this.playerRoom.delete(s.id);
       this.rooms.delete(roomId);
       return { room, closed: true };
     }

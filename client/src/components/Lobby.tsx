@@ -97,6 +97,15 @@ export default function Lobby({ onEntered }: LobbyProps) {
     );
   };
 
+  const spectateRoom = (roomId: string) => {
+    setError(null);
+    socket.emit(
+      "room:spectate",
+      { roomId },
+      (ack: ActionAck) => (ack.ok ? onEntered() : setError(ack.error ?? "Failed")),
+    );
+  };
+
   return (
     <div className="w-full max-w-xl space-y-6 pt-14">
       {/* Floating SWICK title + Lobby */}
@@ -242,16 +251,28 @@ export default function Lobby({ onEntered }: LobbyProps) {
                     </p>
                     <p className="text-xs text-amber-100/60">
                       {room.playerCount}/{room.maxPlayers} players · #{room.id}
+                      {room.started ? " · in progress" : ""}
+                      {room.spectatorCount > 0
+                        ? ` · ${room.spectatorCount} watching`
+                        : ""}
                     </p>
                   </div>
-                  <button
-                    onClick={() => joinRoom(room.id)}
-                    disabled={full || gambleBlocked}
-                    title={joinTitle}
-                    className={`${GOLD_BTN} px-3 py-1.5`}
-                  >
-                    Join
-                  </button>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      onClick={() => joinRoom(room.id)}
+                      disabled={full || room.started || gambleBlocked}
+                      title={room.started ? "Game in progress" : joinTitle}
+                      className={`${GOLD_BTN} px-3 py-1.5`}
+                    >
+                      Join
+                    </button>
+                    <button
+                      onClick={() => spectateRoom(room.id)}
+                      className="rounded-lg border border-amber-400/40 px-3 py-1.5 text-sm font-semibold text-amber-100 hover:bg-red-900/60"
+                    >
+                      Spectate
+                    </button>
+                  </div>
                 </li>
               );
             })}

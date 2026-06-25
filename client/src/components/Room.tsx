@@ -35,10 +35,38 @@ export default function Room({ room, onLeft }: RoomProps) {
   const startGame = () => socket.emit("room:start", ack);
   const leave = () => socket.emit("room:leave", () => onLeft());
 
-  // Once the hand is dealt, show the (new) game table. For now it's just the
-  // green poker-table background — the in-game UI is being rebuilt.
+  // Once the hand is dealt, show the game table (it renders a watcher view for
+  // spectators automatically).
   if (room.started) {
     return <GameTable room={room} onLeave={leave} />;
+  }
+
+  // A spectator on a table that hasn't started yet just waits to watch.
+  if (room.isSpectator) {
+    return (
+      <div className="w-full max-w-md space-y-4 pt-14 text-center">
+        <p className="text-2xl font-bold text-amber-200">Spectating {room.name}</p>
+        <div className="rounded-xl border border-amber-400/40 bg-red-950/70 p-4">
+          <p className="mb-2 text-xs uppercase tracking-wide text-amber-200/70">
+            Players
+          </p>
+          <ul className="space-y-1 text-sm text-amber-50">
+            {room.state.players.map((p) => (
+              <li key={p.id}>{p.name}</li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-amber-100/60">
+            Waiting for the host to start the game…
+          </p>
+        </div>
+        <button
+          onClick={leave}
+          className="rounded-lg bg-slate-700 px-4 py-2 text-sm hover:bg-slate-600"
+        >
+          Leave
+        </button>
+      </div>
+    );
   }
 
   return (
