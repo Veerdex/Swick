@@ -448,6 +448,10 @@ export default function GameTable({ room }: { room: RoomView }) {
   const isHost = room.hostId === youId;
   const nextHand = () => socket.emit("room:nextHand", () => {});
 
+  // Any moment it's your turn to act — drives the pulsing gold screen-edge glow.
+  const myTurn =
+    showTrumpDecision || showKnockDecision || myTurnToDiscard || myTurnToPlay;
+
   const lowestNonTrumpIndex = () => {
     let best = -1;
     let bestRank = Infinity;
@@ -724,13 +728,14 @@ export default function GameTable({ room }: { room: RoomView }) {
   const showSelection = !showSeats;
 
   return (
-    <div
-      className="relative min-h-[100dvh] w-full"
-      // --cu (card unit) scales cards + names with the screen: it holds at the
-      // current size on normal laptops and grows on larger displays so the
-      // table stays readable. Everything sizes off this one knob.
-      style={{ "--cu": "clamp(40px, 2.8vw, 100px)" } as CSSProperties}
-    >
+    // .game-table defines --cu (the card unit) in index.css, including a
+    // portrait-screen boost; everything on the table sizes off that one knob.
+    <div className="game-table relative min-h-[100dvh] w-full">
+      {/* Pulsing gold glow around the screen edge while it's your turn to act. */}
+      {myTurn && (
+        <div className="turn-glow pointer-events-none fixed inset-0 z-40" />
+      )}
+
       {/* Turn spotlight: a soft glow that glides onto the active player's cards
           so everyone can follow whose turn it is. It sits behind the cards and
           transitions its position when the turn moves on. */}
@@ -749,20 +754,32 @@ export default function GameTable({ room }: { room: RoomView }) {
         />
       )}
 
-      {/* Faint "Trump" + trump suit symbol, above the status text. Only once the
-          trump card has actually flipped — the suit is known server-side from
-          the start, but must stay hidden until the on-screen reveal. */}
+      {/* "Trump" + trump suit symbol, to the right of your hand. Shown only once
+          the trump card has actually flipped (the suit is known server-side from
+          the start, but stays hidden until the on-screen reveal). Red suits are
+          drawn red, black suits dark — like the cards. */}
       {(phase === "trump" || phase === "live") && state.trumpSuit && (
         <div
-          className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center leading-none"
-          // Anchored above the deck's top edge (CENTER.y - 1cu), so it rides up
-          // as the cards grow instead of overlapping them on larger screens.
-          style={{ top: `calc(${CENTER.y}% - var(--cu) - 110px)` }}
+          className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center leading-none"
+          style={{
+            left: `calc(${USER_POS.x}% + var(--cu) * 4.6)`,
+            top: `calc(${USER_POS.y}% + var(--cu) * 0.4)`,
+          }}
         >
-          <span className="text-sm font-semibold uppercase tracking-[0.3em] text-black/35">
+          <span
+            className="font-bold uppercase tracking-[0.3em] text-white/90 drop-shadow"
+            style={{ fontSize: "calc(var(--cu, 40px) * 0.3)" }}
+          >
             Trump
           </span>
-          <span className="text-7xl text-black/20">
+          <span
+            className={`leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] ${
+              state.trumpSuit === "hearts" || state.trumpSuit === "diamonds"
+                ? "text-red-500"
+                : "text-slate-900"
+            }`}
+            style={{ fontSize: "calc(var(--cu, 40px) * 1.7)" }}
+          >
             {SUIT_SYMBOL[state.trumpSuit]}
           </span>
         </div>

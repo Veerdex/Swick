@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* The in-game table's card unit. Cards, names, and spacing all scale off --cu.
+   The table is a vertical layout, so size is driven by viewport HEIGHT — more
+   height means more room, so bigger cards. The line is anchored at 900px tall =
+   40px and 1218px tall = 80px (≈2×); below ~900px it floors at 40px and large
+   screens grow toward 100px. A width cap (8.5vw) keeps cards from overflowing
+   horizontally on narrow/tall screens. Everything is continuous (clamp/min of
+   smooth functions), so there's no jump at any aspect ratio. */
+.game-table {
+  --cu: clamp(40px, min(calc(12.6vh - 73px), 8.5vw), 100px);
+}
+
 /* Dark everywhere outside the app content (status bar / overscroll / safe
    areas), so the installed app never flashes white at the edges. */
 :root {
@@ -171,6 +182,21 @@ body {
 }
 .fly-to-deck {
   animation: fly-to-deck 0.4s ease-in forwards;
+}
+
+/* A subtle gold glow around the screen edge while it's your turn. The inset
+   shadow grows + brightens then shrinks + dims, breathing slowly. */
+@keyframes turn-glow {
+  0%,
+  100% {
+    box-shadow: inset 0 0 35px 3px rgba(255, 205, 90, 0.16);
+  }
+  50% {
+    box-shadow: inset 0 0 85px 20px rgba(255, 205, 90, 0.42);
+  }
+}
+.turn-glow {
+  animation: turn-glow 2.6s ease-in-out infinite;
 }
 
 /* A hand card turning face-up. */
