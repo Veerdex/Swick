@@ -13,6 +13,17 @@ function computeFit() {
   return { width, scale };
 }
 
+/** The current menu scale factor (1 on phones, larger on wide screens). */
+export function useMenuScale() {
+  const [scale, setScale] = useState(() => computeFit().scale);
+  useEffect(() => {
+    const onResize = () => setScale(computeFit().scale);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return scale;
+}
+
 /**
  * Centers a menu and scales it up to fill larger screens. The scaled height is
  * divided back out so it still fits the available area (content taller than

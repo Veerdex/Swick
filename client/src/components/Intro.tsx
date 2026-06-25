@@ -1,4 +1,5 @@
 import SwickCards from "./SwickCards";
+import { useMenuScale } from "./ScaledMenu";
 
 interface IntroProps {
   /** Called when the player clicks Play to enter the lobby. */
@@ -17,16 +18,24 @@ const PLAY_DELAY = 0.4;
  * high while the button stays centered in the viewport.
  */
 export default function Intro({ onPlay }: IntroProps) {
+  // Scale the title + button up on larger screens, matching the menus.
+  const scale = useMenuScale();
   return (
     <div className="relative min-h-[100dvh] w-full overflow-hidden">
       {/* SWICK cards — anchored near the top quarter */}
-      <div className="absolute left-1/2 top-[12vh] -translate-x-1/2">
+      <div
+        className="absolute left-1/2 top-[12vh]"
+        style={{ transform: `translateX(-50%) scale(${scale})`, transformOrigin: "top center" }}
+      >
         <SwickCards variant="drop" />
       </div>
 
       {/* Play button — centered in the viewport (outer div centers, inner div
           runs the fade-in so the two transforms don't collide) */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+      <div
+        className="absolute left-1/2 top-1/2"
+        style={{ transform: `translate(-50%, -50%) scale(${scale})` }}
+      >
         <div
           className="intro-play relative flex items-center justify-center"
           style={{ animationDelay: `${PLAY_DELAY}s` }}
