@@ -10,6 +10,17 @@ interface RoomProps {
   onLeft: () => void;
 }
 
+// Decision-time multiplier options (0 = Infinite / no limit).
+const TIME_OPTIONS: { label: string; mult: number }[] = [
+  { label: "0.5×", mult: 0.5 },
+  { label: "1×", mult: 1 },
+  { label: "2×", mult: 2 },
+  { label: "5×", mult: 5 },
+  { label: "∞", mult: 0 },
+];
+const timeLabel = (mult: number) =>
+  mult === 0 ? "Infinite" : mult === 1 ? "Normal" : `${mult}×`;
+
 export default function Room({ room, onLeft }: RoomProps) {
   const [error, setError] = useState<string | null>(null);
   const [anteInput, setAnteInput] = useState(String(room.state.anteAmount));
@@ -31,6 +42,8 @@ export default function Room({ room, onLeft }: RoomProps) {
 
   const setAnte = () =>
     socket.emit("room:setAnte", { amount: Number(anteInput) }, ack);
+  const setDecisionTime = (mult: number) =>
+    socket.emit("room:setDecisionTime", { mult }, ack);
   const toggleReady = () =>
     socket.emit("room:ready", { ready: !me?.ready }, ack);
   const startGame = () => socket.emit("room:start", ack);
@@ -119,6 +132,39 @@ export default function Room({ room, onLeft }: RoomProps) {
           </div>
         ) : (
           <p className="text-xs text-slate-500">The host sets the ante.</p>
+        )}
+      </div>
+
+      <div className="rounded-xl bg-slate-800 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Decision time</h2>
+          <span className="text-sm text-emerald-300">
+            {timeLabel(room.state.decisionMult)}
+          </span>
+        </div>
+        {isHost ? (
+          <>
+            <div className="flex gap-2">
+              {TIME_OPTIONS.map((o) => (
+                <button
+                  key={o.mult}
+                  onClick={() => setDecisionTime(o.mult)}
+                  className={`flex-1 rounded-lg px-2 py-2 text-sm font-medium ${
+                    room.state.decisionMult === o.mult
+                      ? "bg-indigo-500 text-white"
+                      : "bg-slate-700 text-slate-200 hover:bg-slate-600"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Multiplies each turn's time limit (1× = normal, ∞ = no limit).
+            </p>
+          </>
+        ) : (
+          <p className="text-xs text-slate-500">The host sets the decision time.</p>
         )}
       </div>
 

@@ -237,6 +237,18 @@ export class RoomManager {
     return ok(room);
   }
 
+  /** Host sets the decision-time multiplier (0.5 / 1 / 2 / 5, or 0 = Infinite). */
+  setDecisionTime(playerId: string, mult: number): Result<Room> {
+    const room = this.getRoomForPlayer(playerId);
+    if (!room) return fail("You are not in a room");
+    if (room.started) return fail("Game already started");
+    if (room.hostId !== playerId) return fail("Only the host sets the decision time");
+    if (![0, 0.5, 1, 2, 5].includes(mult)) return fail("Invalid decision-time option");
+
+    room.state.decisionMult = mult;
+    return ok(room);
+  }
+
   /** Toggle a player's readiness. Can't ready before the ante is set. */
   setReady(playerId: string, ready: boolean): Result<Room> {
     const room = this.getRoomForPlayer(playerId);

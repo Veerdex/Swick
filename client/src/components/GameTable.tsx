@@ -65,6 +65,13 @@ const PLAY_TIMEOUT_S = 30; // auto-play a legal card after this long on your tur
 const END_KICK_S = 30; // auto-leave the end screen if idle this long
 const MIN_PLAYERS = 3; // a hand can't be dealt below this (mirrors the server)
 
+// Scale a base decision time by the room's multiplier, rounding UP to the
+// nearest 5s. mult 0 = Infinite (no limit).
+function scaleDecision(base: number, mult: number): number {
+  if (mult === 0) return Infinity;
+  return Math.ceil((base * mult) / 5) * 5;
+}
+
 // Countdown ring geometry.
 const RING_R = 28;
 const RING_CIRC = 2 * Math.PI * RING_R;
@@ -319,10 +326,11 @@ export default function GameTable({
   const { state, youId } = room;
   const players = state.players;
   const n = players.length;
-  // Solo casual game (one human vs bots): no one is waiting on you, so drop the
-  // per-move and end-screen time limits. Reverts the moment a 2nd human is in.
+  // Timers are off when the host picked Infinite, or in a solo casual game (one
+  // human vs bots — no one is waiting on you). Reverts if a 2nd human joins.
   const noTimers =
-    room.mode === "casual" && players.filter((p) => !p.isBot).length === 1;
+    state.decisionMult === 0 ||
+    (room.mode === "casual" && players.filter((p) => !p.isBot).length === 1);
   const dealer = players.find((p) => p.id === state.dealerId);
   const me = players.find((p) => p.id === youId);
   const iAmDealer = state.dealerId === youId;
@@ -563,7 +571,7 @@ export default function GameTable({
           : myTurnToPlay
             ? "play"
             : null;
-  const decisionTotal =
+  const baseDecisionTotal =
     activeDecision === "discard"
       ? trimming
         ? TRIM_TIMEOUT_S // dealer's forced trim-to-3 step: 15s
@@ -573,6 +581,8 @@ export default function GameTable({
         : activeDecision === "play"
           ? PLAY_TIMEOUT_S // playing a card in a trick: a flat 30s
           : DECISION_TIMEOUT_S + (iAmDealer ? 5 : 0); // dealer's trump decision
+  // Apply the host's decision-time multiplier (rounded up to the nearest 5s).
+  const decisionTotal = scaleDecision(baseDecisionTotal, state.decisionMult);
 
   // On timeout: dealer keeps the trump, players pass, swappers keep their cards
   // (a kept-trump dealer's forced trim drops their lowest non-trump), and a
@@ -1404,7 +1414,7 @@ export default function GameTable({
       {/* Your-turn prompt + countdown during trick-taking */}
       {myTurnToPlay && (
         <div className="absolute left-1/2 top-[62%] z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2">
-          {!noTimers && <CountdownRing seconds={secondsLeft} total={PLAY_TIMEOUT_S} />}
+          {!noTimers && <CountdownRing seconds={secondsLeft} total={decisionTotal} />}
           <p className="animate-pulse whitespace-nowrap rounded bg-black/45 px-3 py-1 text-center text-sm font-semibold text-white drop-shadow sm:text-base">
             Your turn — play a card
           </p>

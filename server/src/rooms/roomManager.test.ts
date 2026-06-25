@@ -259,3 +259,18 @@ test("a started game below the minimum re-opens for a joiner (refill)", () => {
   assert.equal(room.state.players.length, 3);
   assert.equal(roomSummary(room).needsPlayers, false, "back at the minimum");
 });
+
+test("setDecisionTime: host only, validated multiplier, defaults to 1", () => {
+  const { mgr, room } = withRoom();
+  assert.equal(room.state.decisionMult, 1, "defaults to Normal");
+  mgr.joinRoom(room.id, createPlayer("p1", "P1"));
+
+  assert.equal(mgr.setDecisionTime("p1", 2).ok, false, "non-host rejected");
+  assert.equal(mgr.setDecisionTime("host", 3).ok, false, "invalid multiplier rejected");
+  assert.equal(mgr.setDecisionTime("host", 1.5).ok, false, "invalid multiplier rejected");
+
+  assert.ok(mgr.setDecisionTime("host", 0.5).ok);
+  assert.equal(room.state.decisionMult, 0.5);
+  assert.ok(mgr.setDecisionTime("host", 0).ok, "0 = Infinite is valid");
+  assert.equal(room.state.decisionMult, 0);
+});

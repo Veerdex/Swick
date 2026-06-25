@@ -70,6 +70,12 @@ export interface GameState {
   anteAmount: number;
   /** Whether the ante has been explicitly set; players can't ready before this. */
   anteSet: boolean;
+  /**
+   * Multiplier applied to every decision time limit (host setting). One of
+   * 0.5, 1, 2, 5, or 0 (= Infinite / no limit). The client scales its timers by
+   * this, rounding up to the nearest 5s.
+   */
+  decisionMult: number;
   /** Current pot in cents. Invariant: potValue % 3 === 0. */
   potValue: number;
   /** Set penalties carried into the next hand's pot. */
@@ -185,6 +191,7 @@ export function createGameState(players: PlayerState[] = []): GameState {
 
     anteAmount: MIN_ANTE,
     anteSet: false,
+    decisionMult: 1,
     potValue: 0,
     nextRoundPotBonus: 0,
 

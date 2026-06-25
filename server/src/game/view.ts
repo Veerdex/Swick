@@ -41,6 +41,7 @@ export interface GameView {
   roundState: GameState["roundState"];
   anteAmount: number;
   anteSet: boolean;
+  decisionMult: number;
   potValue: number;
   nextRoundPotBonus: number;
 
@@ -146,6 +147,7 @@ export function viewFor(state: GameState, viewerId: string): GameView {
     roundState: state.roundState,
     anteAmount: state.anteAmount,
     anteSet: state.anteSet,
+    decisionMult: state.decisionMult,
     potValue: state.potValue,
     nextRoundPotBonus: state.nextRoundPotBonus,
 
