@@ -35,6 +35,7 @@ export default function Lobby({ onEntered }: LobbyProps) {
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [roomName, setRoomName] = useState("");
   const [createMode, setCreateMode] = useState<GameMode>("casual");
+  const [friendsOnly, setFriendsOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const auth = useAuth();
 
@@ -114,9 +115,17 @@ export default function Lobby({ onEntered }: LobbyProps) {
     setError(null);
     socket.emit(
       "room:create",
-      { name: roomName, mode: createMode },
+      { name: roomName, mode: createMode, friendsOnly },
       (ack: ActionAck) => (ack.ok ? onEntered() : setError(ack.error ?? "Failed")),
     );
+  };
+
+  // Reset the create form back to its defaults.
+  const cancelCreate = () => {
+    setRoomName("");
+    setCreateMode("casual");
+    setFriendsOnly(false);
+    setError(null);
   };
 
   const joinRoom = (roomId: string) => {
@@ -254,6 +263,27 @@ export default function Lobby({ onEntered }: LobbyProps) {
             Gamble
           </button>
         </div>
+        {/* Friends only — hides the table from everyone but your friends.
+            Accounts only (guests have no friends list). */}
+        <button
+          onClick={() => !auth.isGuest && setFriendsOnly((v) => !v)}
+          disabled={auth.isGuest}
+          title={auth.isGuest ? "Link an account to invite friends" : ""}
+          className={`mb-3 flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
+            friendsOnly
+              ? "border-amber-300 bg-amber-400/20 text-amber-100"
+              : "border-amber-400/40 text-amber-100/80"
+          }`}
+        >
+          <span
+            className={`flex h-4 w-4 items-center justify-center rounded border text-[10px] ${
+              friendsOnly ? "border-amber-200 bg-amber-300 text-red-950" : "border-amber-400/50"
+            }`}
+          >
+            {friendsOnly ? "✓" : ""}
+          </span>
+          Friends only
+        </button>
         <div className="flex gap-2">
           <input
             value={roomName}
@@ -264,6 +294,12 @@ export default function Lobby({ onEntered }: LobbyProps) {
           />
           <button onClick={createRoom} className={`${GOLD_BTN} shrink-0`}>
             Create
+          </button>
+          <button
+            onClick={cancelCreate}
+            className="shrink-0 rounded-lg border border-amber-400/40 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-red-900/60"
+          >
+            Cancel
           </button>
         </div>
       </div>
@@ -307,6 +343,11 @@ export default function Lobby({ onEntered }: LobbyProps) {
                       >
                         {room.mode}
                       </span>
+                      {room.friendsOnly && (
+                        <span className="rounded bg-emerald-500/30 px-1.5 py-0.5 text-[10px] font-bold uppercase text-emerald-200">
+                          Friends
+                        </span>
+                      )}
                     </p>
                     <p className="text-xs text-amber-100/60">
                       {room.playerCount}/{room.maxPlayers} players · #{room.id}

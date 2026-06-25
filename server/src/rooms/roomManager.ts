@@ -66,17 +66,46 @@ export class RoomManager {
       .map(roomSummary);
   }
 
+  /**
+   * Rooms visible to a given viewer. A friends-only table is shown only to its
+   * host and the host's accepted friends (passed in as a set of host ids the
+   * viewer is friends with). Public tables are visible to everyone.
+   */
+  listRoomsVisibleTo(
+    viewerId: string,
+    friendIds: ReadonlySet<string>,
+  ): RoomSummary[] {
+    return [...this.rooms.values()]
+      .filter((r) => this.canSee(r, viewerId, friendIds))
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map(roomSummary);
+  }
+
+  /** Whether a viewer may see/join a room (friends-only gate). */
+  canSee(
+    room: Room,
+    viewerId: string,
+    friendIds: ReadonlySet<string>,
+  ): boolean {
+    return (
+      !room.friendsOnly ||
+      room.hostId === viewerId ||
+      friendIds.has(room.hostId)
+    );
+  }
+
   createRoom(
     name: string,
     host: PlayerState,
     mode: GameMode = "casual",
+    friendsOnly = false,
   ): Result<Room> {
     if (this.playerRoom.has(host.id)) return fail("You are already in a room");
 
     let id = makeRoomCode();
     while (this.rooms.has(id)) id = makeRoomCode();
 
-    const room = createRoom(id, name, host, mode);
+    const room = createRoom(id, name, host, mode, friendsOnly);
     this.rooms.set(id, room);
     this.playerRoom.set(host.id, id);
     return ok(room);

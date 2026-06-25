@@ -6,6 +6,8 @@ export interface RoomSummary {
   id: string;
   name: string;
   mode: GameMode;
+  /** Hidden from non-friends of the host (only friends see it in the list). */
+  friendsOnly: boolean;
   playerCount: number;
   maxPlayers: number;
   spectatorCount: number;

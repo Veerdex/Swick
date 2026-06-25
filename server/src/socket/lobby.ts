@@ -20,6 +20,8 @@ import {
   addFriend,
   respondFriend,
   removeFriend,
+  acceptedFriendIds,
+  type Friend,
 } from "../lib/db.js";
 import type { GameMode } from "../rooms/room.js";
 
@@ -63,8 +65,44 @@ function broadcastRoom(io: Server, room: Room) {
   }
 }
 
+/** A socket's friend-id set (host ids it's allowed to see friends-only tables for). */
+const friendIdsOf = (socket: Socket): Set<string> =>
+  (socket.data.friendIds as Set<string>) ?? new Set<string>();
+
+/** The lobby list as a specific viewer should see it (friends-only filtered). */
+const lobbyFor = (socket: Socket) =>
+  manager.listRoomsVisibleTo(socket.data.userId as string, friendIdsOf(socket));
+
+/** Friends-only tables differ per viewer, so each socket gets its own list. */
 function broadcastLobby(io: Server) {
-  io.emit("lobby:rooms", manager.listRooms());
+  for (const s of io.sockets.sockets.values()) {
+    s.emit("lobby:rooms", lobbyFor(s));
+  }
+}
+
+/** Accepted friend ids from a friends list (for refreshing the cached set). */
+const acceptedSet = (friends: Friend[]): Set<string> =>
+  new Set(friends.filter((f) => f.status === "accepted").map((f) => f.id));
+
+/**
+ * Re-fetch a user's accepted-friend ids onto all their connected sockets and
+ * push them a fresh lobby list — so a newly added/removed friendship updates
+ * which friends-only tables they can see, on both sides.
+ */
+async function refreshFriendIds(io: Server, userId: string) {
+  let ids: Set<string>;
+  try {
+    ids = new Set(await acceptedFriendIds(userId));
+  } catch (err) {
+    console.error("refreshFriendIds failed:", err);
+    return;
+  }
+  for (const s of io.sockets.sockets.values()) {
+    if (s.data.userId === userId) {
+      s.data.friendIds = ids;
+      s.emit("lobby:rooms", lobbyFor(s));
+    }
+  }
 }
 
 // --- Bot driver ------------------------------------------------------------
@@ -223,7 +261,7 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
   const isGuest = () => socket.data.isGuest === true;
   const balance = () => (socket.data.currency as number) ?? 0;
 
-  socket.on("lobby:list", (ack: Ack) => ack?.(manager.listRooms()));
+  socket.on("lobby:list", (ack: Ack) => ack?.(lobbyFor(socket)));
 
   // The client's own profile (username + balance) for the lobby.
   socket.on("profile:get", (ack: Ack) =>
@@ -235,14 +273,18 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
 
   socket.on(
     "room:create",
-    (payload: { name?: string; mode?: GameMode }, ack: Ack) => {
+    (payload: { name?: string; mode?: GameMode; friendsOnly?: boolean }, ack: Ack) => {
       const mode: GameMode = payload?.mode === "gamble" ? "gamble" : "casual";
+      const friendsOnly = payload?.friendsOnly === true;
       if (mode === "gamble" && isGuest()) {
         return ack?.({ ok: false, error: "Gamble mode requires an account" });
       }
+      if (friendsOnly && isGuest()) {
+        return ack?.({ ok: false, error: "Friends-only tables require an account" });
+      }
       const player = createPlayer(userId, nameOf());
       if (mode === "gamble") player.money = balance(); // play with real currency
-      const res = manager.createRoom(payload?.name ?? "", player, mode);
+      const res = manager.createRoom(payload?.name ?? "", player, mode, friendsOnly);
       if (!res.ok) return ack?.({ ok: false, error: res.error });
 
       socket.join(res.value.id);
@@ -254,6 +296,11 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
 
   socket.on("room:join", (payload: { roomId?: string }, ack: Ack) => {
     const room = manager.getRoom(payload?.roomId ?? "");
+    // A friends-only table is invisible to non-friends — treat as not found so
+    // we don't leak its existence.
+    if (room && !manager.canSee(room, userId, friendIdsOf(socket))) {
+      return ack?.({ ok: false, error: "Room not found" });
+    }
     if (room?.mode === "gamble") {
       if (isGuest()) {
         return ack?.({ ok: false, error: "Gamble mode requires an account" });
@@ -274,6 +321,10 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
   });
 
   socket.on("room:spectate", (payload: { roomId?: string }, ack: Ack) => {
+    const room = manager.getRoom(payload?.roomId ?? "");
+    if (room && !manager.canSee(room, userId, friendIdsOf(socket))) {
+      return ack?.({ ok: false, error: "Room not found" });
+    }
     const res = manager.spectate(payload?.roomId ?? "", userId, nameOf());
     if (!res.ok) return ack?.({ ok: false, error: res.error });
 
@@ -315,7 +366,12 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     if (isGuest()) return ack?.({ ok: false, error: "Sign in to add friends" });
     try {
       const result = await addFriend(userId, String(payload?.username ?? ""));
-      ack?.({ ok: true, result, friends: await listFriends(userId) });
+      const friends = await listFriends(userId);
+      // Refresh our friend set + lobby (a reverse-request auto-accept here means
+      // a new friend, so friends-only tables may now be visible).
+      socket.data.friendIds = acceptedSet(friends);
+      socket.emit("lobby:rooms", lobbyFor(socket));
+      ack?.({ ok: true, result, friends });
     } catch (err) {
       console.error("friends:add failed:", err);
       ack?.({ ok: false, error: "error" });
@@ -327,8 +383,14 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     async (payload: { userId?: string; accept?: boolean }, ack: Ack) => {
       if (isGuest()) return ack?.({ ok: false, error: "Sign in to add friends" });
       try {
-        await respondFriend(userId, String(payload?.userId ?? ""), !!payload?.accept);
-        ack?.({ ok: true, friends: await listFriends(userId) });
+        const otherId = String(payload?.userId ?? "");
+        await respondFriend(userId, otherId, !!payload?.accept);
+        const friends = await listFriends(userId);
+        socket.data.friendIds = acceptedSet(friends);
+        socket.emit("lobby:rooms", lobbyFor(socket));
+        // The other side's friend set changed too — update their lobby.
+        refreshFriendIds(io, otherId);
+        ack?.({ ok: true, friends });
       } catch (err) {
         console.error("friends:respond failed:", err);
         ack?.({ ok: false, error: "error" });
@@ -339,8 +401,13 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
   socket.on("friends:remove", async (payload: { userId?: string }, ack: Ack) => {
     if (isGuest()) return ack?.({ ok: false, error: "Sign in to add friends" });
     try {
-      await removeFriend(userId, String(payload?.userId ?? ""));
-      ack?.({ ok: true, friends: await listFriends(userId) });
+      const otherId = String(payload?.userId ?? "");
+      await removeFriend(userId, otherId);
+      const friends = await listFriends(userId);
+      socket.data.friendIds = acceptedSet(friends);
+      socket.emit("lobby:rooms", lobbyFor(socket));
+      refreshFriendIds(io, otherId); // they lose visibility of our friends-only tables
+      ack?.({ ok: true, friends });
     } catch (err) {
       console.error("friends:remove failed:", err);
       ack?.({ ok: false, error: "error" });

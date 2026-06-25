@@ -217,3 +217,23 @@ test("gamble: casual rooms never sit anyone out", () => {
   assert.equal(room.sittingOut.length, 0);
   assert.equal(room.state.players.length, 3);
 });
+
+test("friends-only rooms are hidden from non-friends", () => {
+  const mgr = new RoomManager();
+  const secretHost = createPlayer("host", "Host");
+  assert.ok(mgr.createRoom("Secret", secretHost, "casual", true).ok);
+  const pubHost = createPlayer("pub", "Pub");
+  assert.ok(mgr.createRoom("Public", pubHost, "casual", false).ok);
+
+  const none = new Set<string>();
+  const names = (viewer: string, friends: Set<string>) =>
+    mgr.listRoomsVisibleTo(viewer, friends).map((r) => r.name).sort();
+
+  assert.deepEqual(names("stranger", none), ["Public"], "stranger: friends-only hidden");
+  assert.deepEqual(names("host", none), ["Public", "Secret"], "host sees own table");
+  assert.deepEqual(
+    names("buddy", new Set(["host"])),
+    ["Public", "Secret"],
+    "a friend of the host sees it",
+  );
+});

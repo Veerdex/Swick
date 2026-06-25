@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { Server } from "socket.io";
 import { registerLobbyHandlers } from "./socket/lobby.js";
 import { verifyToken } from "./lib/supabase.js";
-import { ensureProfile, claimDaily } from "./lib/db.js";
+import { ensureProfile, claimDaily, acceptedFriendIds } from "./lib/db.js";
 
 // Railway injects PORT in production; fall back to 3001 for local dev.
 const PORT = Number(process.env.PORT) || 3001;
@@ -32,6 +32,9 @@ io.use(async (socket, next) => {
   }
   socket.data.userId = auth.userId;
   socket.data.isGuest = auth.isGuest; // gamble mode requires a non-guest
+  // The set of host ids this viewer is friends with, used to gate friends-only
+  // tables in the lobby. Guests have no friends; refreshed by friends actions.
+  socket.data.friendIds = new Set<string>();
   // Ensure a profile + apply the daily bonus, and stamp the (unique) username
   // and current balance onto the socket. Best-effort so a transient DB hiccup
   // doesn't block play.
@@ -39,6 +42,9 @@ io.use(async (socket, next) => {
     const profile = await ensureProfile(auth.userId);
     socket.data.username = profile.username;
     socket.data.currency = await claimDaily(auth.userId); // applies +250/day
+    if (!auth.isGuest) {
+      socket.data.friendIds = new Set(await acceptedFriendIds(auth.userId));
+    }
   } catch (err) {
     console.error("profile setup failed:", err);
     socket.data.username = "Player" + auth.userId.slice(0, 4);

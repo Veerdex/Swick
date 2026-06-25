@@ -28,6 +28,8 @@ export interface Room {
   /** Player id of the host (sets ante, starts the game). */
   hostId: string;
   mode: GameMode;
+  /** When true the table is hidden from (and unjoinable by) non-friends of the host. */
+  friendsOnly: boolean;
   /** Watchers — they receive a fully hidden-hand view and take no actions. */
   spectators: Spectator[];
   /**
@@ -47,6 +49,7 @@ export interface RoomSummary {
   id: string;
   name: string;
   mode: GameMode;
+  friendsOnly: boolean;
   playerCount: number;
   maxPlayers: number;
   spectatorCount: number;
@@ -60,12 +63,14 @@ export function createRoom(
   name: string,
   host: PlayerState,
   mode: GameMode = "casual",
+  friendsOnly = false,
 ): Room {
   return {
     id,
     name: name.trim() || "SWICK Table",
     hostId: host.id,
     mode,
+    friendsOnly,
     spectators: [],
     sittingOut: [],
     started: false,
@@ -79,6 +84,7 @@ export function roomSummary(room: Room): RoomSummary {
     id: room.id,
     name: room.name,
     mode: room.mode,
+    friendsOnly: room.friendsOnly,
     playerCount: room.state.players.length,
     maxPlayers: MAX_PLAYERS,
     spectatorCount: room.spectators.length,

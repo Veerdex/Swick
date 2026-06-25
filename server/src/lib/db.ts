@@ -167,6 +167,18 @@ export async function listFriends(userId: string): Promise<Friend[]> {
   }));
 }
 
+/** Just the user ids of a player's accepted friends (lean, for access checks). */
+export async function acceptedFriendIds(userId: string): Promise<string[]> {
+  const res = await fetch(
+    `${FRIENDS}?status=eq.accepted&or=(user_id.eq.${userId},friend_id.eq.${userId})` +
+      `&select=user_id,friend_id`,
+    { headers },
+  );
+  if (!res.ok) throw new Error(`acceptedFriendIds ${res.status}`);
+  const rows = (await res.json()) as { user_id: string; friend_id: string }[];
+  return rows.map((r) => (r.user_id === userId ? r.friend_id : r.user_id));
+}
+
 export type AddFriendResult =
   | "sent"
   | "accepted"
