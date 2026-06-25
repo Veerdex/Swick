@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { socket } from "../lib/socket";
 import { linkGoogle } from "../lib/supabase";
 import { useAuth } from "../lib/useAuth";
@@ -20,6 +20,11 @@ interface LobbyProps {
   onEntered: () => void;
 }
 
+// The three swipeable lobby pages, left → right. Tables is the primary action,
+// so the lobby opens there (rightmost); swipe/tap left for Friends + Settings.
+const TABS = ["Settings", "Friends", "Tables"] as const;
+const HOME_PAGE = 2; // Tables
+
 const USERNAME_MSG: Record<string, string> = {
   taken: "That username is taken.",
   invalid: "3–20 letters, numbers, or underscores.",
@@ -39,6 +44,30 @@ export default function Lobby({ onEntered }: LobbyProps) {
   const [draft, setDraft] = useState("");
   const [nameMsg, setNameMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Swipeable pager: a horizontal scroll-snap container, one page per tab.
+  const pagerRef = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState(HOME_PAGE);
+
+  // Open on the Tables page without a visible scroll animation (pre-paint).
+  useLayoutEffect(() => {
+    const el = pagerRef.current;
+    if (el) el.scrollLeft = HOME_PAGE * el.clientWidth;
+  }, []);
+
+  // Keep the active tab in sync as the user swipes.
+  const onPagerScroll = () => {
+    const el = pagerRef.current;
+    if (!el) return;
+    const next = Math.round(el.scrollLeft / el.clientWidth);
+    if (next !== page) setPage(next);
+  };
+
+  const goTo = (i: number) => {
+    const el = pagerRef.current;
+    if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+    setPage(i);
+  };
 
   useEffect(() => {
     const refresh = () => socket.emit("lobby:list", (list: RoomSummary[]) => setRooms(list));
@@ -108,7 +137,7 @@ export default function Lobby({ onEntered }: LobbyProps) {
   };
 
   return (
-    <div className="w-full max-w-xl space-y-6 pt-14">
+    <div className="w-full max-w-xl pt-14">
       {/* Floating SWICK title + Lobby */}
       <div className="flex flex-col items-center gap-4 pt-2">
         <SwickCards variant="float" />
@@ -117,6 +146,32 @@ export default function Lobby({ onEntered }: LobbyProps) {
         </p>
       </div>
 
+      {/* Tab bar — doubles as the active-page indicator. Tap to jump, or swipe
+          the pages below. */}
+      <div className="mt-5 flex gap-1 rounded-xl border border-amber-400/40 bg-red-950/60 p-1">
+        {TABS.map((label, i) => (
+          <button
+            key={label}
+            onClick={() => goTo(i)}
+            className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+              page === i
+                ? "bg-gradient-to-b from-amber-300 to-amber-600 text-red-950"
+                : "text-amber-100/70 hover:text-amber-100"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Swipeable pager: one full-width, vertically-scrolling page per tab. */}
+      <div
+        ref={pagerRef}
+        onScroll={onPagerScroll}
+        className="no-scrollbar mt-4 flex h-[68vh] snap-x snap-mandatory overflow-x-auto"
+      >
+        {/* ─────────────── Settings ─────────────── */}
+        <section className="h-full w-full shrink-0 snap-center space-y-6 overflow-y-auto px-px pb-2">
       {/* Username (unique) + balance */}
       <div className={`${PANEL} text-center`}>
         <label className="mb-2 block text-xs uppercase tracking-wide text-amber-200/80">
@@ -165,10 +220,28 @@ export default function Lobby({ onEntered }: LobbyProps) {
           )}
         </div>
       )}
+        </section>
 
-      {/* Friends — accounts only (guests have no stable identity) */}
-      {auth.ready && !auth.isGuest && <Friends />}
+        {/* ─────────────── Friends ─────────────── */}
+        <section className="h-full w-full shrink-0 snap-center space-y-6 overflow-y-auto px-px pb-2">
+          {/* Accounts only — guests have no stable identity */}
+          {auth.ready && !auth.isGuest ? (
+            <Friends />
+          ) : (
+            <div className={`${PANEL} text-center`}>
+              <h2 className="mb-2 text-sm font-semibold text-amber-100">Friends</h2>
+              <p className="mb-4 text-sm text-amber-100/70">
+                Link an account to add friends and keep them between sessions.
+              </p>
+              <button onClick={handleLink} className={GOLD_BTN}>
+                Link a Google account
+              </button>
+            </div>
+          )}
+        </section>
 
+        {/* ─────────────── Tables ─────────────── */}
+        <section className="h-full w-full shrink-0 snap-center space-y-6 overflow-y-auto px-px pb-2">
       {/* Create a table */}
       <div className={PANEL}>
         <h2 className="mb-3 text-center text-sm font-semibold text-amber-100">
@@ -289,6 +362,8 @@ export default function Lobby({ onEntered }: LobbyProps) {
           {error}
         </p>
       )}
+        </section>
+      </div>
     </div>
   );
 }

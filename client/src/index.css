@@ -27,6 +27,16 @@ body {
   overscroll-behavior: none;
 }
 
+/* Hide the scrollbar on the swipeable lobby pager (and any opt-in element),
+   while keeping the element scrollable via touch/trackpad/buttons. */
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* WebKit */
+}
+
 /* ---- Intro title sequence ---------------------------------------------- */
 
 /* Each letter "drops" from above the viewport and bounces as the string
