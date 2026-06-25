@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { socket } from "../lib/socket";
 import { linkGoogle } from "../lib/supabase";
 import { useAuth } from "../lib/useAuth";
+import { loadProfile, setUsername } from "../lib/profile";
 import SwickCards from "./SwickCards";
 import type { ActionAck, RoomSummary } from "../types";
 
@@ -14,28 +15,28 @@ const GOLD_BTN =
   "rounded-lg bg-gradient-to-b from-amber-300 to-amber-600 px-4 py-2 text-sm font-semibold text-red-950 shadow hover:from-amber-200 hover:to-amber-500 disabled:opacity-50";
 
 interface LobbyProps {
-  playerName: string;
-  onNameChange: (name: string) => void;
   /** Called once we've successfully entered a room. */
   onEntered: () => void;
 }
 
-export default function Lobby({
-  playerName,
-  onNameChange,
-  onEntered,
-}: LobbyProps) {
+const USERNAME_MSG: Record<string, string> = {
+  taken: "That username is taken.",
+  invalid: "3–20 letters, numbers, or underscores.",
+  error: "Could not save — try again.",
+};
+
+export default function Lobby({ onEntered }: LobbyProps) {
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [roomName, setRoomName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const auth = useAuth();
 
-  const handleLink = () => {
-    setError(null);
-    linkGoogle().catch((e) =>
-      setError(e instanceof Error ? e.message : "Could not link account"),
-    );
-  };
+  // The player's profile (server-owned). The input edits a draft username.
+  const [username, setUsernameState] = useState("");
+  const [currency, setCurrency] = useState(0);
+  const [draft, setDraft] = useState("");
+  const [nameMsg, setNameMsg] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const refresh = () => socket.emit("lobby:list", (list: RoomSummary[]) => setRooms(list));
@@ -48,30 +49,49 @@ export default function Lobby({
     };
   }, []);
 
-  const guardName = (): boolean => {
-    if (!playerName.trim()) {
-      setError("Enter a name first.");
-      return false;
+  // Load our username + balance from the server.
+  useEffect(() => {
+    loadProfile().then((p) => {
+      setUsernameState(p.username);
+      setDraft(p.username);
+      setCurrency(p.currency);
+    });
+  }, []);
+
+  const saveUsername = async () => {
+    setSaving(true);
+    setNameMsg(null);
+    const result = await setUsername(draft.trim());
+    setSaving(false);
+    if (result === "ok") {
+      setUsernameState(draft.trim());
+      setNameMsg("Saved!");
+    } else {
+      setNameMsg(USERNAME_MSG[result] ?? "Could not save.");
     }
-    return true;
+  };
+
+  const handleLink = () => {
+    setError(null);
+    linkGoogle().catch((e) =>
+      setError(e instanceof Error ? e.message : "Could not link account"),
+    );
   };
 
   const createRoom = () => {
-    if (!guardName()) return;
     setError(null);
     socket.emit(
       "room:create",
-      { name: roomName, playerName },
+      { name: roomName },
       (ack: ActionAck) => (ack.ok ? onEntered() : setError(ack.error ?? "Failed")),
     );
   };
 
   const joinRoom = (roomId: string) => {
-    if (!guardName()) return;
     setError(null);
     socket.emit(
       "room:join",
-      { roomId, playerName },
+      { roomId },
       (ack: ActionAck) => (ack.ok ? onEntered() : setError(ack.error ?? "Failed")),
     );
   };
@@ -86,18 +106,34 @@ export default function Lobby({
         </p>
       </div>
 
-      {/* Your name */}
+      {/* Username (unique) + balance */}
       <div className={`${PANEL} text-center`}>
         <label className="mb-2 block text-xs uppercase tracking-wide text-amber-200/80">
-          Your name
+          Username
         </label>
-        <input
-          value={playerName}
-          onChange={(e) => onNameChange(e.target.value)}
-          placeholder="Display name"
-          maxLength={20}
-          className={INPUT}
-        />
+        <div className="flex gap-2">
+          <input
+            value={draft}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              setNameMsg(null);
+            }}
+            placeholder="username"
+            maxLength={20}
+            className={INPUT}
+          />
+          <button
+            onClick={saveUsername}
+            disabled={saving || !draft.trim() || draft.trim() === username}
+            className={`${GOLD_BTN} shrink-0`}
+          >
+            Save
+          </button>
+        </div>
+        {nameMsg && (
+          <p className="mt-2 text-xs text-amber-100/80">{nameMsg}</p>
+        )}
+        <p className="mt-2 text-xs text-amber-200/60">Balance: {currency}¢</p>
       </div>
 
       {/* Account: guests can link a Google account (unlocks gamble mode later) */}

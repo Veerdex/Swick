@@ -13,15 +13,10 @@ import {
   botDiscardDecision,
   botPlayDecision,
 } from "../game/bots.js";
+import { setUsername } from "../lib/db.js";
 
 // One shared manager for the whole server process (in-memory state).
 const manager = new RoomManager();
-
-const MAX_NAME = 20;
-function sanitizeName(raw: unknown): string {
-  const name = typeof raw === "string" ? raw.trim().slice(0, MAX_NAME) : "";
-  return name || "Player";
-}
 
 /** The room view for one specific viewer (hidden info filtered out). */
 function roomStateFor(room: Room, viewerId: string) {
@@ -182,36 +177,56 @@ function handleLeave(io: Server, socket: Socket) {
 }
 
 export function registerLobbyHandlers(io: Server, socket: Socket) {
-  // The authoritative player key for this connection (verified Supabase user).
+  // The authoritative player key (verified user) and their unique username,
+  // which is the in-game name — the client no longer supplies a name.
   const userId = socket.data.userId as string;
+  const nameOf = () => (socket.data.username as string) ?? "Player";
 
   socket.on("lobby:list", (ack: Ack) => ack?.(manager.listRooms()));
 
-  socket.on(
-    "room:create",
-    (payload: { name?: string; playerName?: string }, ack: Ack) => {
-      const player = createPlayer(userId, sanitizeName(payload?.playerName));
-      const res = manager.createRoom(payload?.name ?? "", player);
-      if (!res.ok) return ack?.({ ok: false, error: res.error });
-
-      socket.join(res.value.id);
-      ack?.({ ok: true, roomId: res.value.id });
-      broadcastRoom(io, res.value);
-      broadcastLobby(io);
-    },
+  // The client's own profile (username + balance) for the lobby.
+  socket.on("profile:get", (ack: Ack) =>
+    ack?.({
+      username: socket.data.username as string,
+      currency: socket.data.currency as number,
+    }),
   );
 
-  socket.on(
-    "room:join",
-    (payload: { roomId?: string; playerName?: string }, ack: Ack) => {
-      const player = createPlayer(userId, sanitizeName(payload?.playerName));
-      const res = manager.joinRoom(payload?.roomId ?? "", player);
-      if (!res.ok) return ack?.({ ok: false, error: res.error });
+  socket.on("room:create", (payload: { name?: string }, ack: Ack) => {
+    const player = createPlayer(userId, nameOf());
+    const res = manager.createRoom(payload?.name ?? "", player);
+    if (!res.ok) return ack?.({ ok: false, error: res.error });
 
-      socket.join(res.value.id);
-      ack?.({ ok: true, roomId: res.value.id });
-      broadcastRoom(io, res.value);
-      broadcastLobby(io);
+    socket.join(res.value.id);
+    ack?.({ ok: true, roomId: res.value.id });
+    broadcastRoom(io, res.value);
+    broadcastLobby(io);
+  });
+
+  socket.on("room:join", (payload: { roomId?: string }, ack: Ack) => {
+    const player = createPlayer(userId, nameOf());
+    const res = manager.joinRoom(payload?.roomId ?? "", player);
+    if (!res.ok) return ack?.({ ok: false, error: res.error });
+
+    socket.join(res.value.id);
+    ack?.({ ok: true, roomId: res.value.id });
+    broadcastRoom(io, res.value);
+    broadcastLobby(io);
+  });
+
+  // Change the player's unique username (server validates + enforces uniqueness).
+  socket.on(
+    "profile:setUsername",
+    async (payload: { username?: string }, ack: Ack) => {
+      try {
+        const result = await setUsername(userId, String(payload?.username ?? ""));
+        if (result !== "ok") return ack?.({ ok: false, error: result });
+        socket.data.username = String(payload?.username).trim();
+        ack?.({ ok: true });
+      } catch (err) {
+        console.error("setUsername failed:", err);
+        ack?.({ ok: false, error: "error" });
+      }
     },
   );
 

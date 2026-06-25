@@ -1,29 +1,30 @@
-import { supabase, ensureSession } from "./supabase";
+import { socket } from "./socket";
 
-// The player's profile lives in a `profiles` row keyed to their Supabase user
-// id, guarded by RLS so they can only touch their own. For now it just holds
-// the display name (the persistent wallet column is added later).
+// The player's profile (unique username + currency) is owned by the server.
+// We read and change it over the socket so the server stays authoritative.
 
-/** Read the saved display name for the current user, or null if none yet. */
-export async function loadDisplayName(): Promise<string | null> {
-  const session = await ensureSession();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", session.user.id)
-    .maybeSingle();
-  if (error) {
-    console.error("loadDisplayName failed:", error.message);
-    return null;
-  }
-  return data?.display_name ?? null;
+export interface Profile {
+  username: string;
+  currency: number;
 }
 
-/** Create or update the current user's display name. */
-export async function saveDisplayName(name: string): Promise<void> {
-  const session = await ensureSession();
-  const { error } = await supabase
-    .from("profiles")
-    .upsert({ id: session.user.id, display_name: name });
-  if (error) console.error("saveDisplayName failed:", error.message);
+/** Fetch the player's own username + balance from the server. */
+export function loadProfile(): Promise<Profile> {
+  return new Promise((resolve) => {
+    socket.emit("profile:get", (p: Profile) => resolve(p));
+  });
+}
+
+export type SetUsernameResult = "ok" | "taken" | "invalid" | "error";
+
+/** Ask the server to change the username; it enforces format + uniqueness. */
+export function setUsername(username: string): Promise<SetUsernameResult> {
+  return new Promise((resolve) => {
+    socket.emit(
+      "profile:setUsername",
+      { username },
+      (ack: { ok: boolean; error?: string }) =>
+        resolve(ack?.ok ? "ok" : ((ack?.error as SetUsernameResult) ?? "error")),
+    );
+  });
 }

@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { Server } from "socket.io";
 import { registerLobbyHandlers } from "./socket/lobby.js";
 import { verifyToken } from "./lib/supabase.js";
+import { ensureProfile } from "./lib/db.js";
 
 // Railway injects PORT in production; fall back to 3001 for local dev.
 const PORT = Number(process.env.PORT) || 3001;
@@ -30,6 +31,18 @@ io.use(async (socket, next) => {
     return;
   }
   socket.data.userId = userId;
+  // Ensure the player has a profile and stamp their (unique) username onto the
+  // socket — that's the authoritative in-game name. Best-effort so a transient
+  // DB hiccup doesn't block play.
+  try {
+    const profile = await ensureProfile(userId);
+    socket.data.username = profile.username;
+    socket.data.currency = profile.currency;
+  } catch (err) {
+    console.error("ensureProfile failed:", err);
+    socket.data.username = "Player" + userId.slice(0, 4);
+    socket.data.currency = 1000;
+  }
   next();
 });
 
