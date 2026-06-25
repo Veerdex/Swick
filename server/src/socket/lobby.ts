@@ -172,21 +172,25 @@ function settle(io: Server, res: Result<Room>, ack: Ack) {
   driveTable(io, res.value.id);
 }
 
-/** Leave whatever room this socket is in, broadcasting to anyone still there. */
+/** Leave whatever room this player is in, broadcasting to anyone still there. */
 function handleLeave(io: Server, socket: Socket) {
-  const { room, closed } = manager.leaveRoom(socket.id);
+  const userId = socket.data.userId as string;
+  const { room, closed } = manager.leaveRoom(userId);
   if (room && !closed) broadcastRoom(io, room);
   if (room) socket.leave(room.id);
   broadcastLobby(io);
 }
 
 export function registerLobbyHandlers(io: Server, socket: Socket) {
+  // The authoritative player key for this connection (verified Supabase user).
+  const userId = socket.data.userId as string;
+
   socket.on("lobby:list", (ack: Ack) => ack?.(manager.listRooms()));
 
   socket.on(
     "room:create",
     (payload: { name?: string; playerName?: string }, ack: Ack) => {
-      const player = createPlayer(socket.id, sanitizeName(payload?.playerName));
+      const player = createPlayer(userId, sanitizeName(payload?.playerName));
       const res = manager.createRoom(payload?.name ?? "", player);
       if (!res.ok) return ack?.({ ok: false, error: res.error });
 
@@ -200,7 +204,7 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
   socket.on(
     "room:join",
     (payload: { roomId?: string; playerName?: string }, ack: Ack) => {
-      const player = createPlayer(socket.id, sanitizeName(payload?.playerName));
+      const player = createPlayer(userId, sanitizeName(payload?.playerName));
       const res = manager.joinRoom(payload?.roomId ?? "", player);
       if (!res.ok) return ack?.({ ok: false, error: res.error });
 
@@ -217,50 +221,50 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
   });
 
   socket.on("room:addBot", (ack: Ack) => {
-    const res = manager.addBot(socket.id);
+    const res = manager.addBot(userId);
     settle(io, res, ack);
     if (res.ok) broadcastLobby(io);
   });
 
   socket.on("room:removeBot", (payload: { botId?: string }, ack: Ack) => {
-    const res = manager.removeBot(socket.id, String(payload?.botId ?? ""));
+    const res = manager.removeBot(userId, String(payload?.botId ?? ""));
     settle(io, res, ack);
     if (res.ok) broadcastLobby(io);
   });
 
   socket.on("room:setAnte", (payload: { amount?: number }, ack: Ack) => {
-    settle(io, manager.setAnte(socket.id, Number(payload?.amount)), ack);
+    settle(io, manager.setAnte(userId, Number(payload?.amount)), ack);
   });
 
   socket.on("room:ready", (payload: { ready?: boolean }, ack: Ack) => {
-    settle(io, manager.setReady(socket.id, !!payload?.ready), ack);
+    settle(io, manager.setReady(userId, !!payload?.ready), ack);
   });
 
   socket.on("room:start", (ack: Ack) => {
-    const res = manager.startGame(socket.id);
+    const res = manager.startGame(userId);
     settle(io, res, ack);
     if (res.ok) broadcastLobby(io); // started room drops out of the lobby
   });
 
   socket.on("room:keepTrump", (payload: { keep?: boolean }, ack: Ack) => {
-    settle(io, manager.keepTrump(socket.id, !!payload?.keep), ack);
+    settle(io, manager.keepTrump(userId, !!payload?.keep), ack);
   });
 
   socket.on("room:knock", (payload: { knock?: boolean }, ack: Ack) => {
-    settle(io, manager.knock(socket.id, !!payload?.knock), ack);
+    settle(io, manager.knock(userId, !!payload?.knock), ack);
   });
 
   socket.on("room:discard", (payload: { indices?: number[] }, ack: Ack) => {
     const indices = Array.isArray(payload?.indices) ? payload.indices : [];
-    settle(io, manager.discard(socket.id, indices), ack);
+    settle(io, manager.discard(userId, indices), ack);
   });
 
   socket.on("room:playCard", (payload: { index?: number }, ack: Ack) => {
-    settle(io, manager.playCard(socket.id, Number(payload?.index)), ack);
+    settle(io, manager.playCard(userId, Number(payload?.index)), ack);
   });
 
   socket.on("room:nextHand", (ack: Ack) => {
-    const res = manager.nextHand(socket.id);
+    const res = manager.nextHand(userId);
     settle(io, res, ack);
   });
 

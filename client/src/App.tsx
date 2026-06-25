@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { socket } from "./lib/socket";
+import { socket, connectWithAuth } from "./lib/socket";
 import { useBackgroundMusic } from "./lib/useBackgroundMusic";
 import { usePreventZoom } from "./lib/usePreventZoom";
 import Frame from "./components/Frame";
@@ -29,6 +29,11 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(NAME_KEY, playerName);
   }, [playerName]);
+
+  // Sign in (anonymously for guests) and connect the socket once on load.
+  useEffect(() => {
+    connectWithAuth().catch((err) => console.error("Auth/connect failed:", err));
+  }, []);
 
   // Lock page scrolling while the intro is on screen.
   useEffect(() => {

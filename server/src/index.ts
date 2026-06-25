@@ -1,6 +1,8 @@
+import "dotenv/config";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
 import { registerLobbyHandlers } from "./socket/lobby.js";
+import { verifyToken } from "./lib/supabase.js";
 
 // Railway injects PORT in production; fall back to 3001 for local dev.
 const PORT = Number(process.env.PORT) || 3001;
@@ -17,12 +19,30 @@ const io = new Server(httpServer, {
   cors: { origin: CLIENT_ORIGIN, methods: ["GET", "POST"] },
 });
 
+// Authenticate every connection: the client attaches its Supabase access token
+// to the handshake; we verify it and stamp the trusted user id onto the socket.
+// From here on, that user id (not the volatile socket.id) is the player's key.
+io.use(async (socket, next) => {
+  const token = (socket.handshake.auth as { token?: string })?.token;
+  const userId = await verifyToken(token);
+  if (!userId) {
+    next(new Error("unauthorized"));
+    return;
+  }
+  socket.data.userId = userId;
+  next();
+});
+
 io.on("connection", (socket) => {
-  console.log(`[connect]    ${socket.id}`);
+  const userId = socket.data.userId as string;
+  console.log(`[connect]    ${socket.id} -> user ${userId}`);
+  // Join a room named by the user id so io.to(userId) reaches this client even
+  // across reconnects (the broadcast layer addresses players by user id).
+  socket.join(userId);
   registerLobbyHandlers(io, socket);
 
   socket.on("disconnect", (reason) => {
-    console.log(`[disconnect] ${socket.id} (${reason})`);
+    console.log(`[disconnect] user ${userId} (${reason})`);
   });
 });
 

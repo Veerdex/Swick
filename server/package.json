@@ -14,6 +14,7 @@
     "test": "node scripts/test.mjs"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
     "socket.io": "^4.7.5"
   },
   "devDependencies": {
