@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { socket } from "../lib/socket";
 import Card from "./Card";
 import type {
@@ -1083,8 +1083,9 @@ export default function GameTable({
           );
         })}
 
-      {/* Tricks-won count above each player, from the start of trick-taking
-          until the next hand deals. Sits above the "DEALER" label. */}
+      {/* In-play HUD per player, from the start of trick-taking until the next
+          hand deals: their money above them, and a gold star below their cards
+          for every trick they've won. */}
       {phase === "live" &&
         (state.roundState === "turns" ||
           state.roundState === "trick-complete" ||
@@ -1093,21 +1094,45 @@ export default function GameTable({
           const pos = posOf(p.id);
           const isUserSeat = p.id === youId;
           return (
-            <div
-              key={`tricks-${p.id}`}
-              className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2"
-              style={{
-                left: `${pos.x}%`,
-                top: `calc(${pos.y}% - var(--cu) * ${isUserSeat ? 1.85 : 1.45})`,
-              }}
-            >
-              <span
-                className="block font-black text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.85)]"
-                style={{ fontSize: "calc(var(--cu, 40px) * 0.5)" }}
+            <Fragment key={`hud-${p.id}`}>
+              {/* Money — above the player (sits above the "DEALER" label). */}
+              <div
+                className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2"
+                style={{
+                  left: `${pos.x}%`,
+                  top: `calc(${pos.y}% - var(--cu) * ${isUserSeat ? 1.85 : 1.45})`,
+                }}
               >
-                {p.tricksWon}
-              </span>
-            </div>
+                <span
+                  className="block font-black text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.85)]"
+                  style={{ fontSize: "calc(var(--cu, 40px) * 0.34)" }}
+                >
+                  {money(p.money)}
+                </span>
+              </div>
+
+              {/* Gold stars — one per trick won, below the cards. Hidden on the
+                  end screen, where the payout float owns that spot. */}
+              {p.tricksWon > 0 && state.roundState !== "end" && (
+                <div
+                  className="pointer-events-none absolute z-20 flex -translate-x-1/2 -translate-y-1/2 gap-px"
+                  style={{
+                    left: `${pos.x}%`,
+                    top: `calc(${pos.y}% + var(--cu) * ${isUserSeat ? 1.6 : 1.2})`,
+                  }}
+                >
+                  {Array.from({ length: p.tricksWon }).map((_, i) => (
+                    <span
+                      key={i}
+                      className="star-pop block text-amber-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
+                      style={{ fontSize: "calc(var(--cu, 40px) * 0.45)" }}
+                    >
+                      ★
+                    </span>
+                  ))}
+                </div>
+              )}
+            </Fragment>
           );
         })}
 
