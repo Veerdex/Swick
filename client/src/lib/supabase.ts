@@ -17,6 +17,19 @@ export const supabase = createClient(url, anonKey, {
 });
 
 /**
+ * Upgrade the current (guest) session into a permanent account by linking a
+ * Google identity. The user id is preserved, so their profile and currency
+ * carry over. Redirects to Google and back to the app to complete the flow.
+ */
+export async function linkGoogle(): Promise<void> {
+  const { error } = await supabase.auth.linkIdentity({
+    provider: "google",
+    options: { redirectTo: window.location.origin },
+  });
+  if (error) throw error;
+}
+
+/**
  * Ensure there's a signed-in session, creating an anonymous (guest) one the
  * first time. Returns the current access token. Casual play uses this guest
  * identity; it can later be upgraded to a real account without changing the id.

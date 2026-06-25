@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { socket } from "../lib/socket";
+import { linkGoogle } from "../lib/supabase";
+import { useAuth } from "../lib/useAuth";
 import SwickCards from "./SwickCards";
 import type { ActionAck, RoomSummary } from "../types";
 
@@ -26,6 +28,14 @@ export default function Lobby({
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [roomName, setRoomName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const auth = useAuth();
+
+  const handleLink = () => {
+    setError(null);
+    linkGoogle().catch((e) =>
+      setError(e instanceof Error ? e.message : "Could not link account"),
+    );
+  };
 
   useEffect(() => {
     const refresh = () => socket.emit("lobby:list", (list: RoomSummary[]) => setRooms(list));
@@ -89,6 +99,25 @@ export default function Lobby({
           className={INPUT}
         />
       </div>
+
+      {/* Account: guests can link a Google account (unlocks gamble mode later) */}
+      {auth.ready && (
+        <div className={`${PANEL} flex items-center justify-between gap-3`}>
+          {auth.isGuest ? (
+            <>
+              <span className="text-sm text-amber-100/80">Playing as guest</span>
+              <button onClick={handleLink} className={`${GOLD_BTN} shrink-0`}>
+                Link a Google account
+              </button>
+            </>
+          ) : (
+            <span className="text-sm text-amber-100/80">
+              Signed in as{" "}
+              <span className="font-semibold text-amber-50">{auth.email}</span>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Create a table */}
       <div className={PANEL}>
