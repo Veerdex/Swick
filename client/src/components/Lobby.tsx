@@ -33,7 +33,6 @@ const USERNAME_MSG: Record<string, string> = {
 
 export default function Lobby({ onEntered }: LobbyProps) {
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
-  const [roomName, setRoomName] = useState("");
   const [createMode, setCreateMode] = useState<GameMode>("casual");
   const [friendsOnly, setFriendsOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +114,7 @@ export default function Lobby({ onEntered }: LobbyProps) {
     setError(null);
     socket.emit(
       "room:create",
-      { name: roomName, mode: createMode, friendsOnly },
+      { mode: createMode, friendsOnly },
       (ack: ActionAck) => (ack.ok ? onEntered() : setError(ack.error ?? "Failed")),
     );
   };
@@ -276,18 +275,9 @@ export default function Lobby({ onEntered }: LobbyProps) {
           </span>
           Friends only
         </button>
-        <div className="flex gap-2">
-          <input
-            value={roomName}
-            onChange={(e) => setRoomName(e.target.value)}
-            placeholder="Table name (optional)"
-            maxLength={30}
-            className={INPUT}
-          />
-          <button onClick={createRoom} className={`${GOLD_BTN} shrink-0`}>
-            Create
-          </button>
-        </div>
+        <button onClick={createRoom} className={`${GOLD_BTN} w-full`}>
+          Create
+        </button>
       </div>
 
       {/* Open tables */}

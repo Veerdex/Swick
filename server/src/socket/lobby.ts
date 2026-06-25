@@ -284,7 +284,10 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
       }
       const player = createPlayer(userId, nameOf());
       if (mode === "gamble") player.money = balance(); // play with real currency
-      const res = manager.createRoom(payload?.name ?? "", player, mode, friendsOnly);
+      // Tables are no longer named by the creator; label them by host so the
+      // lobby list stays readable.
+      const name = (payload?.name ?? "").trim() || `${nameOf()}'s table`;
+      const res = manager.createRoom(name, player, mode, friendsOnly);
       if (!res.ok) return ack?.({ ok: false, error: res.error });
 
       socket.join(res.value.id);
