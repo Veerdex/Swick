@@ -22,7 +22,7 @@ let unlocked = false;
 
 function readVolume(): number {
   const v = parseFloat(localStorage.getItem(LS_VOL) ?? "");
-  return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.6;
+  return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.5;
 }
 
 function ensureCtx(): AudioContext | null {

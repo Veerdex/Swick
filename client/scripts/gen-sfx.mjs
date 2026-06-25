@@ -79,30 +79,32 @@ function save(name, b, peak = 0.8) {
 // ---- the sounds -----------------------------------------------------------
 const S = {};
 
-S["ui-enter.wav"] = () => { const b = buf(0.75); noise(b, 0, 0.6, { amp: 0.5, lp: 400, lpEnd: 4000, decay: 0.4, attack: 0.1 }); tone(b, 392, 0.1, 0.6, { amp: 0.3, decay: 0.45 }); tone(b, 587, 0.15, 0.55, { amp: 0.25, decay: 0.42 }); tone(b, 784, 0.2, 0.5, { amp: 0.16, decay: 0.4 }); return [b, 0.7]; };
-S["ui-click.wav"] = () => { const b = buf(0.08); noise(b, 0, 0.06, { amp: 1, lp: 1800, hp: 300, decay: 0.022 }); tone(b, 300, 0, 0.04, { amp: 0.3, decay: 0.03 }); return [b, 0.5]; };
-S["ui-ready.wav"] = () => { const b = buf(0.2); tone(b, 660, 0, 0.08, { amp: 0.5, decay: 0.06 }); tone(b, 990, 0.07, 0.12, { amp: 0.5, decay: 0.08 }); return [b, 0.6]; };
-S["error.wav"] = () => { const b = buf(0.32); tone(b, 300, 0, 0.12, { type: "square", amp: 0.35, decay: 0.1 }); tone(b, 196, 0.12, 0.18, { type: "square", amp: 0.35, decay: 0.13 }); return [b, 0.55]; };
-S["game-start.wav"] = () => { const b = buf(1.0); tone(b, 300, 0, 0.6, { amp: 0.35, f1: 900, decay: 0.45 }); noise(b, 0, 0.6, { amp: 0.25, lp: 600, lpEnd: 5000, decay: 0.45, attack: 0.05 }); tone(b, 523, 0.32, 0.65, { amp: 0.3, decay: 0.45 }); tone(b, 784, 0.32, 0.65, { amp: 0.22, decay: 0.45 }); return [b, 0.75]; };
-S["card-deal.wav"] = () => { const b = buf(0.18); noise(b, 0, 0.16, { amp: 1, lp: 6500, lpEnd: 1500, hp: 800, decay: 0.05, attack: 0.001 }); return [b, 0.6]; };
-S["dealer.wav"] = () => { const b = buf(0.6); tone(b, 880, 0, 0.5, { amp: 0.5, decay: 0.35 }); tone(b, 1760, 0, 0.4, { amp: 0.15, decay: 0.22 }); tone(b, 2640, 0, 0.3, { amp: 0.07, decay: 0.18 }); return [b, 0.7]; };
-S["card-flip.wav"] = () => { const b = buf(0.5); noise(b, 0, 0.12, { amp: 0.8, lp: 5000, hp: 600, decay: 0.055 }); tone(b, 1320, 0.1, 0.4, { amp: 0.28, decay: 0.3 }); tone(b, 1980, 0.1, 0.35, { amp: 0.14, decay: 0.25 }); return [b, 0.7]; };
-S["your-turn.wav"] = () => { const b = buf(0.45); tone(b, 587, 0, 0.4, { amp: 0.45, decay: 0.32 }); tone(b, 880, 0.04, 0.42, { amp: 0.4, decay: 0.34 }); tone(b, 1174, 0.04, 0.4, { amp: 0.12, decay: 0.3 }); return [b, 0.7]; };
-S["commit.wav"] = () => { const b = buf(0.3); tone(b, 150, 0, 0.25, { amp: 0.6, f1: 90, decay: 0.12 }); noise(b, 0, 0.03, { amp: 0.4, lp: 2000, decay: 0.02 }); return [b, 0.7]; };
-S["fold.wav"] = () => { const b = buf(0.42); noise(b, 0, 0.4, { amp: 0.8, lp: 3000, lpEnd: 400, decay: 0.2, attack: 0.02 }); return [b, 0.55]; };
-S["card-select.wav"] = () => { const b = buf(0.07); noise(b, 0, 0.05, { amp: 1, lp: 4500, hp: 1500, decay: 0.018 }); return [b, 0.45]; };
-S["card-shuffle.wav"] = () => { const b = buf(0.75); for (let i = 0; i < 7; i++) noise(b, Math.random() * 0.6, 0.045, { amp: 0.7, lp: 3500, hp: 700, decay: 0.03 }); return [b, 0.6]; };
-S["card-play.wav"] = () => { const b = buf(0.25); noise(b, 0, 0.12, { amp: 0.8, lp: 4000, hp: 500, decay: 0.05 }); tone(b, 120, 0, 0.12, { amp: 0.5, f1: 80, decay: 0.07 }); return [b, 0.65]; };
-S["trick-win.wav"] = () => { const b = buf(0.6); noise(b, 0, 0.18, { amp: 0.5, lp: 1500, lpEnd: 5000, decay: 0.12, attack: 0.02 }); tone(b, 784, 0.18, 0.32, { amp: 0.4, decay: 0.26 }); tone(b, 1176, 0.2, 0.3, { amp: 0.28, decay: 0.24 }); return [b, 0.7]; };
-S["payout.wav"] = () => { const b = buf(1.3); for (let i = 0; i < 16; i++) clink(b, Math.random() * 0.9, 1200 + Math.random() * 1400, 0.18 + Math.random() * 0.1); tone(b, 330, 0.6, 0.6, { amp: 0.3, decay: 0.4 }); tone(b, 440, 0.62, 0.58, { amp: 0.22, decay: 0.4 }); tone(b, 660, 0.62, 0.55, { amp: 0.14, decay: 0.4 }); return [b, 0.85]; };
-S["set.wav"] = () => { const b = buf(0.8); tone(b, 440, 0, 0.7, { type: "triangle", amp: 0.5, f1: 150, decay: 0.55 }); tone(b, 220, 0.02, 0.7, { type: "triangle", amp: 0.3, f1: 80, decay: 0.55 }); return [b, 0.6]; };
-S["special-hand.wav"] = () => { const b = buf(1.5); const arp = [523, 659, 784, 1046]; arp.forEach((f, i) => tone(b, f, i * 0.1, 0.6, { amp: 0.4, decay: 0.45 })); [523, 659, 784, 1046].forEach((f) => tone(b, f, 0.45, 0.9, { amp: 0.22, decay: 0.6 })); for (let i = 0; i < 8; i++) tone(b, 1800 + Math.random() * 1200, 0.45 + Math.random() * 0.6, 0.12, { amp: 0.1, decay: 0.08 }); return [b, 0.85]; };
-S["swipe.wav"] = () => { const b = buf(0.2); noise(b, 0, 0.18, { amp: 0.6, lp: 2500, lpEnd: 1000, decay: 0.1, attack: 0.02 }); return [b, 0.5]; };
-S["timer-tick.wav"] = () => { const b = buf(0.08); noise(b, 0, 0.04, { amp: 0.8, lp: 2500, hp: 800, decay: 0.018 }); tone(b, 1000, 0, 0.03, { amp: 0.25, decay: 0.02 }); return [b, 0.55]; };
-S["money-tick.wav"] = () => { const b = buf(0.05); tone(b, 1200, 0, 0.04, { amp: 0.5, decay: 0.028 }); tone(b, 2400, 0, 0.03, { amp: 0.2, decay: 0.02 }); return [b, 0.5]; };
-S["player-join.wav"] = () => { const b = buf(0.32); tone(b, 523, 0, 0.12, { amp: 0.45, decay: 0.1 }); tone(b, 784, 0.1, 0.18, { amp: 0.45, decay: 0.14 }); return [b, 0.6]; };
-S["player-leave.wav"] = () => { const b = buf(0.34); tone(b, 587, 0, 0.12, { amp: 0.4, decay: 0.1 }); tone(b, 392, 0.1, 0.2, { amp: 0.4, decay: 0.16 }); return [b, 0.55]; };
-S["reconnect.wav"] = () => { const b = buf(0.34); tone(b, 660, 0, 0.1, { amp: 0.45, decay: 0.08 }); tone(b, 990, 0.08, 0.14, { amp: 0.45, decay: 0.11 }); tone(b, 1320, 0.14, 0.16, { amp: 0.3, decay: 0.12 }); return [b, 0.6]; };
+// Softened set: no highpass (that's the "snare snap"), darker lowpass, gentle
+// attacks, lower levels. Clicks are soft tones rather than noise.
+S["ui-enter.wav"] = () => { const b = buf(0.75); noise(b, 0, 0.6, { amp: 0.35, lp: 300, lpEnd: 2400, decay: 0.42, attack: 0.16 }); tone(b, 392, 0.1, 0.6, { amp: 0.28, decay: 0.45, attack: 0.02 }); tone(b, 587, 0.15, 0.55, { amp: 0.2, decay: 0.42 }); tone(b, 784, 0.2, 0.5, { amp: 0.12, decay: 0.4 }); return [b, 0.42]; };
+S["ui-click.wav"] = () => { const b = buf(0.08); tone(b, 240, 0, 0.055, { amp: 0.5, decay: 0.04, attack: 0.004 }); noise(b, 0, 0.025, { amp: 0.1, lp: 650, decay: 0.018, attack: 0.003 }); return [b, 0.26]; };
+S["ui-ready.wav"] = () => { const b = buf(0.2); tone(b, 660, 0, 0.09, { amp: 0.45, decay: 0.07, attack: 0.006 }); tone(b, 990, 0.07, 0.12, { amp: 0.38, decay: 0.09, attack: 0.006 }); return [b, 0.38]; };
+S["error.wav"] = () => { const b = buf(0.34); tone(b, 330, 0, 0.13, { amp: 0.4, decay: 0.11, attack: 0.008 }); tone(b, 247, 0.12, 0.2, { amp: 0.4, decay: 0.14, attack: 0.008 }); return [b, 0.36]; };
+S["game-start.wav"] = () => { const b = buf(1.0); tone(b, 300, 0, 0.6, { amp: 0.32, f1: 900, decay: 0.45, attack: 0.02 }); noise(b, 0, 0.6, { amp: 0.12, lp: 500, lpEnd: 3000, decay: 0.45, attack: 0.1 }); tone(b, 523, 0.32, 0.65, { amp: 0.26, decay: 0.45 }); tone(b, 784, 0.32, 0.65, { amp: 0.18, decay: 0.45 }); return [b, 0.5]; };
+S["card-deal.wav"] = () => { const b = buf(0.17); noise(b, 0, 0.15, { amp: 0.7, lp: 2800, lpEnd: 1000, decay: 0.06, attack: 0.008 }); return [b, 0.34]; };
+S["dealer.wav"] = () => { const b = buf(0.6); tone(b, 880, 0, 0.5, { amp: 0.45, decay: 0.36, attack: 0.008 }); tone(b, 1760, 0, 0.4, { amp: 0.11, decay: 0.22 }); return [b, 0.45]; };
+S["card-flip.wav"] = () => { const b = buf(0.5); noise(b, 0, 0.12, { amp: 0.5, lp: 3000, decay: 0.06, attack: 0.008 }); tone(b, 1320, 0.1, 0.4, { amp: 0.22, decay: 0.3, attack: 0.008 }); tone(b, 1980, 0.1, 0.35, { amp: 0.09, decay: 0.25 }); return [b, 0.45]; };
+S["your-turn.wav"] = () => { const b = buf(0.45); tone(b, 587, 0, 0.4, { amp: 0.4, decay: 0.33, attack: 0.01 }); tone(b, 880, 0.04, 0.42, { amp: 0.32, decay: 0.34, attack: 0.01 }); return [b, 0.45]; };
+S["commit.wav"] = () => { const b = buf(0.3); tone(b, 150, 0, 0.25, { amp: 0.55, f1: 95, decay: 0.13, attack: 0.008 }); noise(b, 0, 0.025, { amp: 0.15, lp: 1100, decay: 0.018, attack: 0.004 }); return [b, 0.45]; };
+S["fold.wav"] = () => { const b = buf(0.42); noise(b, 0, 0.4, { amp: 0.6, lp: 1700, lpEnd: 320, decay: 0.22, attack: 0.05 }); return [b, 0.3]; };
+S["card-select.wav"] = () => { const b = buf(0.06); tone(b, 620, 0, 0.045, { amp: 0.4, decay: 0.025, attack: 0.004 }); return [b, 0.24]; };
+S["card-shuffle.wav"] = () => { const b = buf(0.7); for (let i = 0; i < 7; i++) noise(b, Math.random() * 0.55, 0.05, { amp: 0.5, lp: 2000, decay: 0.035, attack: 0.006 }); return [b, 0.34]; };
+S["card-play.wav"] = () => { const b = buf(0.22); noise(b, 0, 0.11, { amp: 0.5, lp: 2300, decay: 0.05, attack: 0.006 }); tone(b, 110, 0, 0.1, { amp: 0.4, f1: 75, decay: 0.07 }); return [b, 0.4]; };
+S["trick-win.wav"] = () => { const b = buf(0.6); noise(b, 0, 0.16, { amp: 0.3, lp: 1100, lpEnd: 3000, decay: 0.12, attack: 0.04 }); tone(b, 784, 0.18, 0.32, { amp: 0.34, decay: 0.26, attack: 0.01 }); tone(b, 1176, 0.2, 0.3, { amp: 0.2, decay: 0.24 }); return [b, 0.45]; };
+S["payout.wav"] = () => { const b = buf(1.3); for (let i = 0; i < 14; i++) clink(b, Math.random() * 0.9, 1100 + Math.random() * 1000, 0.1 + Math.random() * 0.05); tone(b, 330, 0.6, 0.6, { amp: 0.26, decay: 0.4 }); tone(b, 440, 0.62, 0.58, { amp: 0.18, decay: 0.4 }); tone(b, 660, 0.62, 0.55, { amp: 0.1, decay: 0.4 }); return [b, 0.55]; };
+S["set.wav"] = () => { const b = buf(0.8); tone(b, 440, 0, 0.7, { type: "triangle", amp: 0.45, f1: 150, decay: 0.55, attack: 0.012 }); tone(b, 220, 0.02, 0.7, { type: "triangle", amp: 0.26, f1: 80, decay: 0.55 }); return [b, 0.4]; };
+S["special-hand.wav"] = () => { const b = buf(1.5); const arp = [523, 659, 784, 1046]; arp.forEach((f, i) => tone(b, f, i * 0.1, 0.6, { amp: 0.36, decay: 0.45, attack: 0.01 })); [523, 659, 784, 1046].forEach((f) => tone(b, f, 0.45, 0.9, { amp: 0.18, decay: 0.6 })); for (let i = 0; i < 6; i++) tone(b, 1800 + Math.random() * 1000, 0.45 + Math.random() * 0.6, 0.12, { amp: 0.06, decay: 0.08 }); return [b, 0.55]; };
+S["swipe.wav"] = () => { const b = buf(0.22); noise(b, 0, 0.2, { amp: 0.45, lp: 1100, lpEnd: 450, decay: 0.13, attack: 0.06 }); return [b, 0.26]; };
+S["timer-tick.wav"] = () => { const b = buf(0.07); tone(b, 800, 0, 0.035, { amp: 0.4, decay: 0.022, attack: 0.004 }); noise(b, 0, 0.018, { amp: 0.08, lp: 850, decay: 0.014 }); return [b, 0.28]; };
+S["money-tick.wav"] = () => { const b = buf(0.05); tone(b, 1100, 0, 0.04, { amp: 0.4, decay: 0.028, attack: 0.003 }); return [b, 0.3]; };
+S["player-join.wav"] = () => { const b = buf(0.32); tone(b, 523, 0, 0.12, { amp: 0.4, decay: 0.1, attack: 0.008 }); tone(b, 784, 0.1, 0.18, { amp: 0.4, decay: 0.14, attack: 0.008 }); return [b, 0.4]; };
+S["player-leave.wav"] = () => { const b = buf(0.34); tone(b, 587, 0, 0.12, { amp: 0.36, decay: 0.1, attack: 0.008 }); tone(b, 392, 0.1, 0.2, { amp: 0.36, decay: 0.16, attack: 0.008 }); return [b, 0.38]; };
+S["reconnect.wav"] = () => { const b = buf(0.34); tone(b, 660, 0, 0.1, { amp: 0.4, decay: 0.08, attack: 0.008 }); tone(b, 990, 0.08, 0.14, { amp: 0.4, decay: 0.11, attack: 0.008 }); tone(b, 1320, 0.14, 0.16, { amp: 0.24, decay: 0.12 }); return [b, 0.42]; };
 
 console.log("Writing SFX to", OUT);
 for (const [name, fn] of Object.entries(S)) { const [b, peak] = fn(); save(name, b, peak); }
