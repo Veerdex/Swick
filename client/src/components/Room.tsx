@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { socket } from "../lib/socket";
 import GameTable from "./GameTable";
+import ScaledMenu from "./ScaledMenu";
 import type { ActionAck, RoomView } from "../types";
 
 interface RoomProps {
@@ -70,7 +71,7 @@ export default function Room({ room, onLeft }: RoomProps) {
   }
 
   return (
-    <div className="w-full max-w-xl space-y-6 pt-14">
+    <ScaledMenu className="space-y-6 pt-14">
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{room.name}</h1>
@@ -213,6 +214,6 @@ export default function Room({ room, onLeft }: RoomProps) {
           {error}
         </p>
       )}
-    </div>
+    </ScaledMenu>
   );
 }
