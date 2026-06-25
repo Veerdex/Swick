@@ -29,6 +29,8 @@ export interface PlayerView {
   wentSet: boolean;
   setType: PlayerState["setType"];
   setAmount: number;
+  /** False while a player is disconnected (a bot plays their seat until then). */
+  connected: boolean;
   /** How many cards are in the hand (always visible). */
   handCount: number;
   /** The hand, with hidden cards as null. */
@@ -132,6 +134,7 @@ function buildPlayerView(
     wentSet: owner.wentSet,
     setType: owner.setType,
     setAmount: owner.setAmount,
+    connected: owner.connected,
     handCount: owner.hand.length,
     hand: buildHandView(state, viewerId, owner),
   };

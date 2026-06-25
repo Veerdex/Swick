@@ -111,7 +111,11 @@ async function refreshFriendIds(io: Server, userId: string) {
 const BOT_DELAY_MS = 800;
 const botPending = new Set<string>();
 
-/** The bot whose turn it is right now (by phase), or null. */
+/**
+ * The seat a bot should act for right now (by phase), or null. This is a real
+ * bot OR a disconnected human — a bot plays a vacated seat until the player
+ * reconnects or the hand ends.
+ */
 function currentBotActor(room: Room): string | null {
   const s = room.state;
   let id: string | null = null;
@@ -121,7 +125,7 @@ function currentBotActor(room: Room): string | null {
   else if (s.roundState === "turns") id = s.currentTurnPlayerId;
   if (!id) return null;
   const p = s.players.find((x) => x.id === id);
-  return p?.isBot ? id : null;
+  return p && (p.isBot || !p.connected) ? id : null;
 }
 
 function performBotAction(room: Room, botId: string) {
@@ -206,6 +210,12 @@ function driveTable(io: Server, roomId: string) {
   const room = manager.getRoom(roomId);
   if (!room) return;
   const s = room.state;
+  // The hand is over: anyone still disconnected is removed now ("the end of the
+  // round in which they disconnected"). Reconnecting before this kept their seat.
+  if (s.roundState === "end") {
+    pruneDisconnected(io, room);
+    return;
+  }
   if (s.roundState === "trick-complete") {
     scheduleTrickAdvance(io, roomId);
   } else if (s.roundState === "knock-in" && s.currentKnockPlayerId === null) {
@@ -213,6 +223,33 @@ function driveTable(io: Server, roomId: string) {
   } else {
     driveBots(io, roomId);
   }
+}
+
+/**
+ * Remove any players still disconnected at hand-end. Their balance is saved
+ * (gamble) first, the host is reassigned if needed, and the room closes if no
+ * humans remain. A bot covered their seat for the hand just finished.
+ */
+function pruneDisconnected(io: Server, room: Room) {
+  const gone = room.state.players
+    .filter((p) => !p.isBot && !p.connected)
+    .map((p) => p.id);
+  if (gone.length === 0) return;
+
+  let closed = false;
+  for (const id of gone) {
+    if (room.mode === "gamble") {
+      const me = room.state.players.find((p) => p.id === id);
+      if (me) setCurrency(id, me.money).catch((e) => console.error("prune save:", e));
+    }
+    const res = manager.leaveRoom(id);
+    if (res.closed) {
+      closed = true;
+      break;
+    }
+  }
+  if (!closed) broadcastRoom(io, room);
+  broadcastLobby(io);
 }
 
 type Ack = ((response: unknown) => void) | undefined;
@@ -253,6 +290,33 @@ function handleLeave(io: Server, socket: Socket) {
   broadcastLobby(io);
 }
 
+/**
+ * A socket dropped. If the player is mid-hand, DON'T free their seat — mark them
+ * disconnected so a bot plays it for the rest of the hand; they're pruned at
+ * hand-end unless they reconnect first. Otherwise (in the lobby or between
+ * hands) they just leave.
+ */
+function handleDisconnect(io: Server, socket: Socket) {
+  const userId = socket.data.userId as string;
+  const room = manager.getRoomForPlayer(userId);
+  const player = room?.state.players.find((p) => p.id === userId);
+  const midHand =
+    room?.started &&
+    player &&
+    !player.isBot &&
+    room.state.roundState !== "idle" &&
+    room.state.roundState !== "end";
+
+  if (room && midHand && player) {
+    player.connected = false; // a bot covers this seat until reconnect / hand end
+    console.log(`[disconnect] ${player.name} dropped mid-hand — bot taking over`);
+    broadcastRoom(io, room);
+    driveTable(io, room.id); // in case it's their turn right now
+    return;
+  }
+  handleLeave(io, socket);
+}
+
 export function registerLobbyHandlers(io: Server, socket: Socket) {
   // The authoritative player key (verified user) and their unique username,
   // which is the in-game name — the client no longer supplies a name.
@@ -260,6 +324,17 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
   const nameOf = () => (socket.data.username as string) ?? "Player";
   const isGuest = () => socket.data.isGuest === true;
   const balance = () => (socket.data.currency as number) ?? 0;
+
+  // Reconnect: if this user still holds a seat they dropped from mid-hand,
+  // restore control of it (a bot was covering) instead of starting fresh.
+  const seated = manager.getRoomForPlayer(userId);
+  const me = seated?.state.players.find((p) => p.id === userId);
+  if (seated && me && !me.connected) {
+    me.connected = true;
+    socket.join(seated.id);
+    console.log(`[reconnect] ${me.name} resumed their seat`);
+    broadcastRoom(io, seated);
+  }
 
   socket.on("lobby:list", (ack: Ack) => ack?.(lobbyFor(socket)));
 
@@ -470,5 +545,5 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     settle(io, res, ack);
   });
 
-  socket.on("disconnect", () => handleLeave(io, socket));
+  socket.on("disconnect", () => handleDisconnect(io, socket));
 }

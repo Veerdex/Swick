@@ -46,6 +46,8 @@ export interface PlayerView {
   wentSet: boolean;
   setType: "single" | "double" | null;
   setAmount: number;
+  /** False while disconnected — a bot plays their seat until they return. */
+  connected: boolean;
   handCount: number;
   hand: CardSlot[];
 }

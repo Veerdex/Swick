@@ -35,7 +35,12 @@ export default function App() {
 
   useEffect(() => {
     const onDisconnect = () => setRoom(null); // our seat is gone once the socket drops
-    const onRoomState = (next: RoomView) => setRoom(next);
+    const onRoomState = (next: RoomView) => {
+      setRoom(next);
+      // Reconnecting mid-game (e.g. after a refresh) drops us straight back into
+      // the seat the server is holding, past the intro.
+      setShowIntro(false);
+    };
 
     socket.on("disconnect", onDisconnect);
     socket.on("room:state", onRoomState);

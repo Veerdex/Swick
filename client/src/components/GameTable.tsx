@@ -251,9 +251,13 @@ function Seat({
           backgroundColor: isTurn ? color : "rgba(0,0,0,0.4)",
           color: isTurn ? "#15130c" : "#fff",
           boxShadow: isTurn ? `0 0 12px ${color}` : undefined,
+          opacity: player.connected ? 1 : 0.6,
         }}
       >
         {player.name}
+        {!player.connected && (
+          <span className="ml-1 font-normal italic opacity-80">· away</span>
+        )}
       </span>
       <div
         className={`flex transition-opacity ${dimmed ? "opacity-40" : ""}`}
