@@ -127,7 +127,7 @@ export default function Room({ room, onLeft }: RoomProps) {
           <h2 className="text-sm font-semibold">
             Players ({room.state.players.length}/6)
           </h2>
-          {isHost && room.state.players.length < 6 && (
+          {isHost && room.mode !== "gamble" && room.state.players.length < 6 && (
             <button
               onClick={() => socket.emit("room:addBot", ack)}
               className="rounded-lg bg-slate-700 px-3 py-1 text-xs hover:bg-slate-600"
