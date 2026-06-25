@@ -56,6 +56,8 @@ export interface RoomSummary {
   /** Current pot — a gamble table needs more than this to join. */
   pot: number;
   started: boolean;
+  /** A started game that dropped below the minimum and is open to refill. */
+  needsPlayers: boolean;
 }
 
 export function createRoom(
@@ -90,5 +92,6 @@ export function roomSummary(room: Room): RoomSummary {
     spectatorCount: room.spectators.length,
     pot: room.state.potValue,
     started: room.started,
+    needsPlayers: room.started && room.state.players.length < MIN_PLAYERS,
   };
 }

@@ -114,7 +114,12 @@ export class RoomManager {
   joinRoom(roomId: string, player: PlayerState): Result<Room> {
     const room = this.rooms.get(roomId);
     if (!room) return fail("Room not found");
-    if (room.started) return fail("That game has already started");
+    // A started game is closed to joiners EXCEPT when it has dropped below the
+    // minimum (players left mid-game) — then it accepts players to refill the
+    // seat so the table can resume.
+    if (room.started && room.state.players.length >= MIN_PLAYERS) {
+      return fail("That game has already started");
+    }
     if (this.playerRoom.has(player.id)) return fail("You are already in a room");
     if (room.state.players.length >= MAX_PLAYERS) return fail("Room is full");
 

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { RoomManager } from "./roomManager.js";
-import { MAX_PLAYERS } from "./room.js";
+import { MAX_PLAYERS, roomSummary } from "./room.js";
 import { createPlayer } from "../game/state.js";
 
 /** Create a manager with a room hosted by "host", returning both + the room. */
@@ -236,4 +236,26 @@ test("friends-only rooms are hidden from non-friends", () => {
     ["Public", "Secret"],
     "a friend of the host sees it",
   );
+});
+
+test("a started game below the minimum re-opens for a joiner (refill)", () => {
+  const { mgr, room } = withRoom();
+  mgr.setAnte("host", 3);
+  mgr.setReady("host", true);
+  const [, p1] = fillReady(mgr, room, 2); // 3 players, all ready
+  assert.ok(mgr.startGame("host").ok);
+
+  // A full (>= MIN) started game still rejects joiners.
+  assert.equal(mgr.joinRoom(room.id, createPlayer("late", "Late")).ok, false);
+  assert.equal(roomSummary(room).needsPlayers, false);
+
+  // Drop below the minimum.
+  mgr.leaveRoom(p1);
+  assert.equal(room.state.players.length, 2);
+  assert.equal(roomSummary(room).needsPlayers, true, "now open to refill");
+
+  // A joiner can fill the seat even though the game is started.
+  assert.ok(mgr.joinRoom(room.id, createPlayer("refill", "Refill")).ok);
+  assert.equal(room.state.players.length, 3);
+  assert.equal(roomSummary(room).needsPlayers, false, "back at the minimum");
 });

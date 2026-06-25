@@ -14,6 +14,8 @@ export interface RoomSummary {
   /** Current pot — a gamble table needs your balance to exceed this to join. */
   pot: number;
   started: boolean;
+  /** A started game that dropped below the minimum and is open to refill. */
+  needsPlayers: boolean;
 }
 
 export type Suit = "spades" | "hearts" | "diamonds" | "clubs";

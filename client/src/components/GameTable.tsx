@@ -63,6 +63,7 @@ const DISCARD_TIMEOUT_S = 30; // auto-accept the swap after this long (all playe
 const TRIM_TIMEOUT_S = 15; // the kept-trump dealer's second step (trim to 3)
 const PLAY_TIMEOUT_S = 30; // auto-play a legal card after this long on your turn
 const END_KICK_S = 30; // auto-leave the end screen if idle this long
+const MIN_PLAYERS = 3; // a hand can't be dealt below this (mirrors the server)
 
 // Countdown ring geometry.
 const RING_R = 28;
@@ -324,7 +325,9 @@ export default function GameTable({
 
   // Spectators skip the deal cinematic and watch the live state immediately.
   const [phase, setPhase] = useState<Phase>(() =>
-    room.isSpectator ? "live" : "waiting",
+    // Spectators, and anyone joining at the end screen (refilling a seat), skip
+    // the deal cinematic and land on the live/end view.
+    room.isSpectator || state.roundState === "end" ? "live" : "waiting",
   );
   const [sequence, setSequence] = useState<CardT[]>([]);
   const [revealCount, setRevealCount] = useState(0);
@@ -709,8 +712,11 @@ export default function GameTable({
   // End-screen idle timeout: count down and kick the player if they don't act.
   // Cancels automatically when the next hand starts (roundState leaves "end").
   useEffect(() => {
-    // Spectators aren't on the clock, so they're never auto-kicked.
+    // Spectators aren't on the clock, so they're never auto-kicked. Nor is
+    // anyone while the table waits below the minimum for players to refill —
+    // they're legitimately waiting, not idle.
     if (phase !== "live" || state.roundState !== "end" || isSpectator) return;
+    if (players.length < MIN_PLAYERS) return;
     setEndSeconds(END_KICK_S);
     const start = Date.now();
     const id = setInterval(() => {
@@ -722,7 +728,7 @@ export default function GameTable({
       }
     }, 250);
     return () => clearInterval(id);
-  }, [phase, state.roundState, isSpectator]);
+  }, [phase, state.roundState, isSpectator, players.length]);
 
   // Decision countdown: tick the number, then auto-act at zero.
   useEffect(() => {
@@ -1441,14 +1447,24 @@ export default function GameTable({
           >
             Leave
           </button>
-          <button
-            onClick={nextHand}
-            disabled={!isHost}
-            className="rounded-xl bg-gradient-to-b from-amber-300 to-amber-600 px-14 py-5 text-3xl font-bold text-red-950 shadow-lg hover:from-amber-200 hover:to-amber-500 disabled:opacity-60"
-          >
-            {isHost ? "Play Again?" : "Waiting…"}
-          </button>
-          {!isSpectator && (
+          {players.length < MIN_PLAYERS ? (
+            // Dropped below the minimum — can't deal until the seat is refilled.
+            <button
+              disabled
+              className="cursor-not-allowed rounded-xl border border-amber-400/30 bg-red-950/70 px-14 py-5 text-3xl font-bold text-amber-100/50 shadow-lg"
+            >
+              Waiting for more players
+            </button>
+          ) : (
+            <button
+              onClick={nextHand}
+              disabled={!isHost}
+              className="rounded-xl bg-gradient-to-b from-amber-300 to-amber-600 px-14 py-5 text-3xl font-bold text-red-950 shadow-lg hover:from-amber-200 hover:to-amber-500 disabled:opacity-60"
+            >
+              {isHost ? "Play Again?" : "Waiting…"}
+            </button>
+          )}
+          {!isSpectator && players.length >= MIN_PLAYERS && (
             <p className="mt-1 text-sm font-semibold text-amber-100/70 drop-shadow">
               Leaving in {endSeconds}s
             </p>

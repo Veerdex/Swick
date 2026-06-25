@@ -329,7 +329,11 @@ export default function Lobby({ onEntered }: LobbyProps) {
                     </p>
                     <p className="text-xs text-amber-100/60">
                       {room.playerCount}/{room.maxPlayers} players · #{room.id}
-                      {room.started ? " · in progress" : ""}
+                      {room.needsPlayers
+                        ? " · needs players"
+                        : room.started
+                          ? " · in progress"
+                          : ""}
                       {room.spectatorCount > 0
                         ? ` · ${room.spectatorCount} watching`
                         : ""}
@@ -338,8 +342,16 @@ export default function Lobby({ onEntered }: LobbyProps) {
                   <div className="flex shrink-0 gap-2">
                     <button
                       onClick={() => joinRoom(room.id)}
-                      disabled={full || room.started || gambleBlocked}
-                      title={room.started ? "Game in progress" : joinTitle}
+                      disabled={
+                        full || (room.started && !room.needsPlayers) || gambleBlocked
+                      }
+                      title={
+                        room.needsPlayers
+                          ? "Join to fill the table"
+                          : room.started
+                            ? "Game in progress"
+                            : joinTitle
+                      }
                       className={`${GOLD_BTN} px-3 py-1.5`}
                     >
                       Join
