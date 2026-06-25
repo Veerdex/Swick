@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { socket, connectWithAuth } from "./lib/socket";
+import { loadDisplayName, saveDisplayName } from "./lib/profile";
 import { useBackgroundMusic } from "./lib/useBackgroundMusic";
 import { usePreventZoom } from "./lib/usePreventZoom";
 import Frame from "./components/Frame";
@@ -17,6 +18,9 @@ export default function App() {
   const [playerName, setPlayerName] = useState(
     () => localStorage.getItem(NAME_KEY) ?? "",
   );
+  // Whether the saved profile name has been fetched yet (gates writing back, so
+  // we don't overwrite the stored name with a stale local value on first load).
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [room, setRoom] = useState<RoomView | null>(null);
   const [showIntro, setShowIntro] = useState(true);
   const { audioRef, musicOn, toggleMusic } = useBackgroundMusic();
@@ -25,7 +29,7 @@ export default function App() {
   // Once a hand is in progress the backdrop becomes the green poker table.
   const inGame = !!room?.started;
 
-  // Persist the chosen name across reloads.
+  // Cache the name locally for instant paint on the next load.
   useEffect(() => {
     localStorage.setItem(NAME_KEY, playerName);
   }, [playerName]);
@@ -34,6 +38,30 @@ export default function App() {
   useEffect(() => {
     connectWithAuth().catch((err) => console.error("Auth/connect failed:", err));
   }, []);
+
+  // Load the saved display name from the profile; it's the source of truth and
+  // overrides the local cache when present.
+  useEffect(() => {
+    let active = true;
+    loadDisplayName()
+      .then((name) => {
+        if (!active) return;
+        if (name) setPlayerName(name);
+        setProfileLoaded(true);
+      })
+      .catch(() => active && setProfileLoaded(true));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Persist name edits back to the profile (debounced), but only after the
+  // saved name has loaded so we never clobber it with a stale local value.
+  useEffect(() => {
+    if (!profileLoaded || !playerName.trim()) return;
+    const t = setTimeout(() => saveDisplayName(playerName.trim()), 600);
+    return () => clearTimeout(t);
+  }, [playerName, profileLoaded]);
 
   // Lock page scrolling while the intro is on screen.
   useEffect(() => {
