@@ -229,16 +229,28 @@ export default function Lobby({ onEntered }: LobbyProps) {
         <p className="mt-2 text-xs text-amber-200/60">Balance: {currency}¢</p>
       </div>
 
-      {/* Account: guests can link a Google account (unlocks gamble mode later) */}
+      {/* Account: a guest can LINK Google (keeps this guest's progress) or
+          SIGN IN to an account they already have. */}
       {auth.ready && (
-        <div className={`${PANEL} flex items-center justify-between gap-3`}>
+        <div className={PANEL}>
           {auth.isGuest ? (
-            <>
-              <span className="text-sm text-amber-100/80">Playing as guest</span>
-              <button onClick={handleLink} className={`${GOLD_BTN} shrink-0`}>
-                Link a Google account
-              </button>
-            </>
+            <div className="space-y-2">
+              <p className="text-sm text-amber-100/80">Playing as guest</p>
+              <div className="flex gap-2">
+                <button onClick={handleLink} className={`${GOLD_BTN} flex-1`}>
+                  Link Google
+                </button>
+                <button
+                  onClick={handleSignIn}
+                  className="flex-1 rounded-lg border border-amber-400/40 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-red-900/60"
+                >
+                  Sign in
+                </button>
+              </div>
+              <p className="text-xs text-amber-200/50">
+                Link to save this guest's progress · Sign in if you already have an account.
+              </p>
+            </div>
           ) : (
             <span className="text-sm text-amber-100/80">
               Signed in as{" "}
