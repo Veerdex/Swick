@@ -33,7 +33,7 @@ export default function Intro({ onPlay }: IntroProps) {
       {/* Play button — centered in the viewport (outer div centers, inner div
           runs the fade-in so the two transforms don't collide) */}
       <div
-        className="absolute left-1/2 top-1/2"
+        className="absolute left-1/2 top-[66.67dvh]"
         style={{ transform: `translate(-50%, -50%) scale(${scale})` }}
       >
         <div
