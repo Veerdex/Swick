@@ -138,25 +138,29 @@ export default function Lobby({ onEntered }: LobbyProps) {
 
   return (
     <div className="w-full max-w-xl pt-14">
-      {/* Floating SWICK title + Lobby */}
-      <div className="flex flex-col items-center gap-4 pt-2">
+      {/* Floating SWICK title */}
+      <div className="flex flex-col items-center pt-2">
         <SwickCards variant="float" />
-        <p className="text-3xl font-semibold tracking-wide text-amber-200 drop-shadow">
-          Lobby
-        </p>
       </div>
 
       {/* Tab bar — doubles as the active-page indicator. Tap to jump, or swipe
-          the pages below. */}
-      <div className="mt-5 flex gap-1 rounded-xl border border-amber-400/40 bg-red-950/60 p-1">
+          the pages below. A single gold pill slides between tabs (the buttons
+          are equal-width and gapless, so it lands exactly on each one). */}
+      <div className="relative mt-5 flex rounded-xl border border-amber-400/40 bg-red-950/60 p-1">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-1 left-1 rounded-lg bg-gradient-to-b from-amber-300 to-amber-600 transition-transform duration-300 ease-out"
+          style={{
+            width: "calc((100% - 0.5rem) / 3)",
+            transform: `translateX(${page * 100}%)`,
+          }}
+        />
         {TABS.map((label, i) => (
           <button
             key={label}
             onClick={() => goTo(i)}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
-              page === i
-                ? "bg-gradient-to-b from-amber-300 to-amber-600 text-red-950"
-                : "text-amber-100/70 hover:text-amber-100"
+            className={`relative z-10 flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+              page === i ? "text-red-950" : "text-amber-100/70 hover:text-amber-100"
             }`}
           >
             {label}
