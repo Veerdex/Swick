@@ -58,6 +58,8 @@ const DECISION_TIMEOUT_S = 10; // dealer's trump keep/pass auto-decides after th
 const KNOCK_TIMEOUT_S = 15; // knock-in / pass auto-passes after this long
 const DISCARD_TIMEOUT_S = 30; // auto-accept the swap after this long (all players)
 const TRIM_TIMEOUT_S = 15; // the kept-trump dealer's second step (trim to 3)
+const PLAY_TIMEOUT_S = 30; // auto-play a legal card after this long on your turn
+const END_KICK_S = 30; // auto-leave the end screen if idle this long
 
 // Countdown ring geometry.
 const RING_R = 28;
@@ -78,11 +80,6 @@ const PLAYER_COLORS = [
   "#3b82f6", // blue
   "#a855f7", // purple
 ];
-const SPECIAL_LABEL: Record<string, string> = {
-  "three-aces": "Three Aces",
-  "three-sevens": "Three Sevens",
-  "akq-trump": "A-K-Q of Trump",
-};
 const rankValue = (r: Rank) => RANK_ORDER.indexOf(r);
 const sameCard = (a: CardSlot, b: CardSlot) =>
   !!a && !!b && a.rank === b.rank && a.suit === b.suit;
@@ -189,6 +186,7 @@ function Seat({
   legalPlays,
   onPlay,
   color,
+  showDealer = true,
 }: {
   player: PlayerView;
   pos: Pos;
@@ -198,6 +196,8 @@ function Seat({
   dimmed: boolean;
   /** The player's tracking colour (name outline + card borders). */
   color: string;
+  /** Whether to show the DEALER label (hidden until the dealer is revealed). */
+  showDealer?: boolean;
   /** When true the cards are tappable for the discard/swap selection. */
   selecting?: boolean;
   selected?: Set<number>;
@@ -230,7 +230,7 @@ function Seat({
       className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
       style={{ left: `${pos.x}%`, top: `${pos.y}%`, ...flyStyle }}
     >
-      {player.isDealer && (
+      {showDealer && player.isDealer && (
         <span
           className="font-bold uppercase tracking-widest text-amber-300 drop-shadow"
           style={{ fontSize: "calc(var(--cu, 40px) * 0.25)" }}
@@ -297,7 +297,13 @@ function Seat({
   );
 }
 
-export default function GameTable({ room }: { room: RoomView }) {
+export default function GameTable({
+  room,
+  onLeave,
+}: {
+  room: RoomView;
+  onLeave?: () => void;
+}) {
   const { state, youId } = room;
   const players = state.players;
   const n = players.length;
@@ -343,6 +349,14 @@ export default function GameTable({ room }: { room: RoomView }) {
   );
   // Your own discarded cards flying (face-up) to the deck during a swap.
   const [outFx, setOutFx] = useState<{ cards: CardT[]; key: number } | null>(null);
+  // End-of-hand money change per player (floats over their cards). Fades out
+  // when the next hand starts.
+  const [endDeltas, setEndDeltas] = useState<Record<string, number> | null>(null);
+  const [moneyFadeOut, setMoneyFadeOut] = useState(false);
+  // Seconds left before an idle player is auto-kicked from the end screen.
+  const [endSeconds, setEndSeconds] = useState(END_KICK_S);
+  const onLeaveRef = useRef(onLeave);
+  onLeaveRef.current = onLeave;
   const revealed = sequence.slice(0, revealCount);
 
   // --- Seat layout (you at the bottom, others clockwise) ---
@@ -499,14 +513,31 @@ export default function GameTable({ room }: { room: RoomView }) {
     return best;
   };
 
+  // The lowest-ranked card among your legal plays (the auto-play on timeout).
+  const lowestLegalPlayIndex = () => {
+    let best = -1;
+    let bestRank = Infinity;
+    for (const i of state.yourLegalPlays) {
+      const c = me?.hand[i];
+      if (c && rankValue(c.rank) < bestRank) {
+        bestRank = rankValue(c.rank);
+        best = i;
+      }
+    }
+    return best;
+  };
+
   // Whichever decision is currently demanding a countdown.
-  const activeDecision: "trump" | "knock" | "discard" | null = showTrumpDecision
-    ? "trump"
-    : showKnockDecision
-      ? "knock"
-      : myTurnToDiscard
-        ? "discard"
-        : null;
+  const activeDecision: "trump" | "knock" | "discard" | "play" | null =
+    showTrumpDecision
+      ? "trump"
+      : showKnockDecision
+        ? "knock"
+        : myTurnToDiscard
+          ? "discard"
+          : myTurnToPlay
+            ? "play"
+            : null;
   const decisionTotal =
     activeDecision === "discard"
       ? trimming
@@ -514,10 +545,13 @@ export default function GameTable({ room }: { room: RoomView }) {
         : DISCARD_TIMEOUT_S // swap step: a flat 30s for everyone, dealer included
       : activeDecision === "knock"
         ? KNOCK_TIMEOUT_S // knock-in / pass: a flat 15s for everyone
-        : DECISION_TIMEOUT_S + (iAmDealer ? 5 : 0); // dealer's trump decision
+        : activeDecision === "play"
+          ? PLAY_TIMEOUT_S // playing a card in a trick: a flat 30s
+          : DECISION_TIMEOUT_S + (iAmDealer ? 5 : 0); // dealer's trump decision
 
   // On timeout: dealer keeps the trump, players pass, swappers keep their cards
-  // (a kept-trump dealer's forced trim drops their lowest non-trump).
+  // (a kept-trump dealer's forced trim drops their lowest non-trump), and a
+  // player on the clock to play auto-plays their lowest legal card.
   autoActionRef.current = () => {
     if (activeDecision === "trump") {
       socket.emit("room:keepTrump", { keep: true }, () => {});
@@ -528,6 +562,9 @@ export default function GameTable({ room }: { room: RoomView }) {
         ? [lowestNonTrumpIndex()].filter((i) => i >= 0)
         : [];
       socket.emit("room:discard", { indices }, () => {});
+    } else if (activeDecision === "play") {
+      const i = lowestLegalPlayIndex();
+      if (i >= 0) socket.emit("room:playCard", { index: i }, () => {});
     }
   };
 
@@ -621,8 +658,51 @@ export default function GameTable({ room }: { room: RoomView }) {
       setPassFx({});
       setDealtCount(0);
       setPhase("dealing");
+      // Fade the end-of-hand money floats out as the new hand begins.
+      setMoneyFadeOut(true);
+      setTimeout(() => setEndDeltas(null), 700);
     }
   }, [state.roundState]);
+
+  // At the end of a hand, compute each player's money change to float over their
+  // cards: trick winnings (+pot/3 per trick), a set penalty (−), or the whole
+  // pot for an instant special-hand win.
+  useEffect(() => {
+    if (phase !== "live" || state.roundState !== "end") return;
+    const share = state.potValue / 3;
+    // No tricks played and no special hand means everyone passed and the dealer
+    // took the pot automatically.
+    const totalTricks = players.reduce((sum, p) => sum + p.tricksWon, 0);
+    const autoWin = !state.specialHandWinner && totalTricks === 0;
+    const d: Record<string, number> = {};
+    for (const p of players) {
+      const delta =
+        state.specialHandWinner === p.id || (autoWin && p.id === state.dealerId)
+          ? state.potValue
+          : p.tricksWon * share - (p.wentSet ? p.setAmount : 0);
+      if (delta !== 0) d[p.id] = delta;
+    }
+    setEndDeltas(d);
+    setMoneyFadeOut(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, state.roundState]);
+
+  // End-screen idle timeout: count down and kick the player if they don't act.
+  // Cancels automatically when the next hand starts (roundState leaves "end").
+  useEffect(() => {
+    if (phase !== "live" || state.roundState !== "end") return;
+    setEndSeconds(END_KICK_S);
+    const start = Date.now();
+    const id = setInterval(() => {
+      const left = Math.max(0, END_KICK_S - Math.floor((Date.now() - start) / 1000));
+      setEndSeconds(left);
+      if (left <= 0) {
+        clearInterval(id);
+        onLeaveRef.current?.();
+      }
+    }, 250);
+    return () => clearInterval(id);
+  }, [phase, state.roundState]);
 
   // Decision countdown: tick the number, then auto-act at zero.
   useEffect(() => {
@@ -773,9 +853,14 @@ export default function GameTable({ room }: { room: RoomView }) {
       : "";
   const displayText = statusText || liveInfo;
 
-  const showSeats =
+  // Cards are out (and the dealer is known) from "dealing" on.
+  const dealtPhase =
     phase === "dealing" || phase === "trump" || phase === "live";
-  const showSelection = !showSeats;
+  // Seats (player names) show from the very start; cards and the DEALER label
+  // only appear once dealing begins, so the dealer reveal isn't spoiled.
+  const showSeats = true;
+  const showSelection =
+    phase === "selecting" || phase === "revealing" || phase === "dealerFound";
 
   return (
     // .game-table defines --cu (the card unit) in index.css, including a
@@ -784,6 +869,24 @@ export default function GameTable({ room }: { room: RoomView }) {
       {/* Pulsing gold glow around the screen edge while it's your turn to act. */}
       {myTurn && (
         <div className="turn-glow pointer-events-none fixed inset-0 z-40" />
+      )}
+
+      {/* Current pot — pot of gold in the top-left, value below it in gold. */}
+      {state.potValue > 0 && (
+        <div className="pointer-events-none absolute left-3 top-3 z-30 flex flex-col items-center">
+          <img
+            src="/pot-of-gold.png"
+            alt="Pot"
+            className="drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]"
+            style={{ width: "clamp(136px, 18vw, 264px)" }}
+          />
+          <span
+            className="-mt-2 font-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.85)]"
+            style={{ color: "#FFD700", fontSize: "clamp(36px, 5.2vw, 72px)" }}
+          >
+            {money(state.potValue)}
+          </span>
+        </div>
       )}
 
       {/* Turn spotlight: a soft glow that glides onto the active player's cards
@@ -888,7 +991,10 @@ export default function GameTable({ room }: { room: RoomView }) {
           let hand: CardSlot[];
           let anim: "deal" | "flip" | "none" = "none";
 
-          if (phase === "dealing") {
+          if (!dealtPhase) {
+            // Before the deal: show the name only, no cards yet.
+            hand = [];
+          } else if (phase === "dealing") {
             const dealt = cardsDealtTo(p.id);
             // Your own cards are dealt face-up — unless you're the blind dealer.
             hand =
@@ -943,7 +1049,36 @@ export default function GameTable({ room }: { room: RoomView }) {
               legalPlays={isUserSeat ? legalPlaySet : undefined}
               onPlay={playCard}
               color={colorOf(p.id)}
+              showDealer={dealtPhase}
             />
+          );
+        })}
+
+      {/* Tricks-won count above each player, from the start of trick-taking
+          until the next hand deals. Sits above the "DEALER" label. */}
+      {phase === "live" &&
+        (state.roundState === "turns" ||
+          state.roundState === "trick-complete" ||
+          state.roundState === "end") &&
+        players.map((p) => {
+          const pos = posOf(p.id);
+          const isUserSeat = p.id === youId;
+          return (
+            <div
+              key={`tricks-${p.id}`}
+              className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2"
+              style={{
+                left: `${pos.x}%`,
+                top: `calc(${pos.y}% - var(--cu) * ${isUserSeat ? 1.85 : 1.45})`,
+              }}
+            >
+              <span
+                className="block font-black text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.85)]"
+                style={{ fontSize: "calc(var(--cu, 40px) * 0.5)" }}
+              >
+                {p.tricksWon}
+              </span>
+            </div>
           );
         })}
 
@@ -1166,7 +1301,8 @@ export default function GameTable({ room }: { room: RoomView }) {
           <div
             key={fx.key}
             className="comic-pop pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+            // Sit over where the player's cards are (below the name), not on it.
+            style={{ left: `${pos.x}%`, top: `calc(${pos.y}% + var(--cu) * 0.7)` }}
           >
             <span
               className={`comic-text text-[1.3125rem] sm:text-[1.575rem] ${
@@ -1192,90 +1328,67 @@ export default function GameTable({ room }: { room: RoomView }) {
         </div>
       )}
 
-      {/* Your-turn prompt during trick-taking */}
+      {/* Your-turn prompt + countdown during trick-taking */}
       {myTurnToPlay && (
-        <p className="absolute left-1/2 top-[64%] z-20 -translate-x-1/2 -translate-y-1/2 animate-pulse whitespace-nowrap rounded bg-black/45 px-3 py-1 text-center text-sm font-semibold text-white drop-shadow sm:text-base">
-          Your turn — play a card
-        </p>
+        <div className="absolute left-1/2 top-[62%] z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2">
+          <CountdownRing seconds={secondsLeft} total={PLAY_TIMEOUT_S} />
+          <p className="animate-pulse whitespace-nowrap rounded bg-black/45 px-3 py-1 text-center text-sm font-semibold text-white drop-shadow sm:text-base">
+            Your turn — play a card
+          </p>
+        </div>
       )}
 
       {/* End-of-hand summary */}
+      {/* End-of-hand money change floating over each player's cards */}
+      {endDeltas &&
+        Object.entries(endDeltas).map(([pid, delta]) => {
+          const pos = posOf(pid);
+          const gain = delta > 0;
+          return (
+            <div
+              key={pid}
+              className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2"
+              style={{
+                left: `${pos.x}%`,
+                // Anchor low over the card area so the value never rises onto the
+                // name; the user's own (bigger) cards sit lower, so nudge further.
+                top: `calc(${pos.y}% + var(--cu) * ${pid === youId ? 1.5 : 1.15})`,
+                opacity: moneyFadeOut ? 0 : 1,
+                transition: "opacity 0.6s ease-out",
+              }}
+            >
+              <span
+                className={`money-float block whitespace-nowrap font-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)] ${
+                  gain ? "text-green-400" : "text-red-500"
+                }`}
+                style={{ fontSize: "calc(var(--cu, 40px) * 0.55)" }}
+              >
+                {gain ? "+" : "−"}
+                {money(Math.abs(delta))}
+              </span>
+            </div>
+          );
+        })}
+
+      {/* End-of-hand: just Leave / Next, centered */}
       {phase === "live" && state.roundState === "end" && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/55">
-          <div className="pop-in w-[90%] max-w-md rounded-2xl border-4 border-amber-400 bg-red-950/95 px-8 py-7 text-center shadow-2xl">
-            {state.specialHandWinner ? (
-              <>
-                <p className="text-xs uppercase tracking-widest text-amber-300/80">
-                  Special hand
-                </p>
-                <p className="mt-1 text-2xl font-black text-amber-300">
-                  {SPECIAL_LABEL[state.specialHandType ?? ""] ?? "Special hand"}
-                </p>
-                <p className="mt-1 text-base text-amber-100">
-                  {players.find((p) => p.id === state.specialHandWinner)?.name ??
-                    "Someone"}{" "}
-                  wins the pot
-                </p>
-              </>
-            ) : (
-              <p className="text-3xl font-black text-amber-300">Hand Over</p>
-            )}
-
-            <div className="mt-4 flex flex-col gap-1.5 text-left">
-              {players.map((p) => {
-                const won = p.tricksWon * (state.potValue / 3);
-                return (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between gap-3 rounded bg-black/30 px-3 py-1.5 text-sm"
-                  >
-                    <span className="font-semibold text-white">
-                      {p.name}
-                      {p.id === state.dealerId ? " (D)" : ""}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <span className="text-amber-100/80">
-                        {p.tricksWon} {p.tricksWon === 1 ? "trick" : "tricks"}
-                      </span>
-                      {p.wentSet ? (
-                        <span className="rounded bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
-                          SET −{money(p.setAmount)}
-                        </span>
-                      ) : won > 0 ? (
-                        <span className="font-bold text-green-400">
-                          +{money(won)}
-                        </span>
-                      ) : (
-                        <span className="text-white/40">—</span>
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <p className="mt-3 text-xs text-amber-100/60">
-              Pot {money(state.potValue)}
-              {state.nextRoundPotBonus > 0
-                ? ` · ${money(state.nextRoundPotBonus)} carries to the next pot`
-                : ""}
-            </p>
-
-            <div className="mt-5">
-              {isHost ? (
-                <button
-                  onClick={nextHand}
-                  className="rounded-lg bg-gradient-to-b from-amber-300 to-amber-600 px-8 py-2.5 text-base font-bold text-red-950 shadow-lg hover:from-amber-200 hover:to-amber-500"
-                >
-                  Next hand
-                </button>
-              ) : (
-                <p className="text-sm text-amber-100/70">
-                  Waiting for the host to deal…
-                </p>
-              )}
-            </div>
-          </div>
+        <div className="absolute left-1/2 top-[46%] z-40 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-4">
+          <button
+            onClick={() => onLeave?.()}
+            className="rounded-xl border border-amber-400/40 bg-red-950/85 px-14 py-5 text-3xl font-bold text-amber-100 shadow-lg hover:bg-red-900/85"
+          >
+            Leave
+          </button>
+          <button
+            onClick={nextHand}
+            disabled={!isHost}
+            className="rounded-xl bg-gradient-to-b from-amber-300 to-amber-600 px-14 py-5 text-3xl font-bold text-red-950 shadow-lg hover:from-amber-200 hover:to-amber-500 disabled:opacity-60"
+          >
+            {isHost ? "Play Again?" : "Waiting…"}
+          </button>
+          <p className="mt-1 text-sm font-semibold text-amber-100/70 drop-shadow">
+            Leaving in {endSeconds}s
+          </p>
         </div>
       )}
     </div>

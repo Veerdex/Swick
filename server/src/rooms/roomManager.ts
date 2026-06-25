@@ -17,7 +17,7 @@ import {
 } from "./room.js";
 import { type PlayerState, MIN_ANTE, createPlayer } from "../game/state.js";
 import { startHand, dealerTrumpDecision } from "../game/dealing.js";
-import { applyKnock } from "../game/knockIn.js";
+import { applyKnock, finishKnockIn } from "../game/knockIn.js";
 import { applyDiscard } from "../game/discard.js";
 import { playCard, finishTrick } from "../game/tricks.js";
 
@@ -267,6 +267,17 @@ export class RoomManager {
     }
 
     playCard(room.state, playerId, cardIndex);
+    return ok(room);
+  }
+
+  /** End the knock-in end-of-phase pause (server-driven, by room id). */
+  finishKnockIn(roomId: string): Result<Room> {
+    const room = this.getRoom(roomId);
+    if (!room) return fail("No such room");
+    if (room.state.roundState !== "knock-in" || room.state.currentKnockPlayerId !== null) {
+      return fail("Knock-in is not awaiting completion");
+    }
+    finishKnockIn(room.state);
     return ok(room);
   }
 

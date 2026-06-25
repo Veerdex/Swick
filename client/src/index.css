@@ -322,6 +322,26 @@ body {
   animation: play-card 0.3s ease-out backwards;
 }
 
+/* End-of-hand money delta: fades in over the player's cards, drifts slowly
+   upward, and eases to a stop AT its anchor (so it rests over the cards rather
+   than rising into the player's name). */
+@keyframes money-float {
+  0% {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.money-float {
+  animation: money-float 3s ease-out forwards;
+}
+
 /* Rotating gold sunburst behind the Play button. */
 @keyframes intro-spin {
   to {

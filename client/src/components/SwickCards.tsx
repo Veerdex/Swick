@@ -10,7 +10,7 @@ const CARD_STAGGER = 0.22;
 // Per-card phase offset for the floating ripple (lobby variant).
 const FLOAT_STAGGER = 0.2;
 
-/** The white playing-card face with the gold pin and the letter. */
+/** The white playing-card face with the letter. */
 function CardFace({
   letter,
   red,
@@ -27,7 +27,6 @@ function CardFace({
       className={`relative flex h-24 w-16 items-center justify-center rounded-xl bg-white text-5xl font-black shadow-2xl ring-1 ring-amber-300/50 sm:h-28 sm:w-20 ${animClass}`}
       style={style}
     >
-      <span className="absolute -top-1.5 h-3 w-3 rounded-full bg-amber-300 shadow" />
       <span className={red ? "text-red-600" : "text-slate-900"}>{letter}</span>
     </div>
   );

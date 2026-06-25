@@ -38,7 +38,7 @@ export default function Room({ room, onLeft }: RoomProps) {
   // Once the hand is dealt, show the (new) game table. For now it's just the
   // green poker-table background — the in-game UI is being rebuilt.
   if (room.started) {
-    return <GameTable room={room} />;
+    return <GameTable room={room} onLeave={leave} />;
   }
 
   return (

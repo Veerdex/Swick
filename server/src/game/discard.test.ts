@@ -5,7 +5,7 @@ import { cardId, cardsEqual, type Card } from "./cards.js";
 import { DECK_SIZE } from "./deck.js";
 import { createGameState, createPlayer, type GameState } from "./state.js";
 import { startHand, dealerTrumpDecision } from "./dealing.js";
-import { applyKnock } from "./knockIn.js";
+import { applyKnock, finishKnockIn } from "./knockIn.js";
 import { applyDiscard } from "./discard.js";
 
 /** Start a hand and bring it to discard-draw with all players knocked in. */
@@ -18,9 +18,12 @@ function toDiscardPhase(n: number, keepTrump: boolean): GameState {
   s.anteSet = true;
   startHand(s);
   dealerTrumpDecision(s, keepTrump);
-  // Everyone knocks in, in order, until discard-draw begins.
+  // Everyone knocks in, in order, until discard-draw begins. Knock-in holds
+  // (currentKnockPlayerId === null) after the last decision for its pause —
+  // finishKnockIn then advances it.
   while (s.roundState === "knock-in") {
-    applyKnock(s, s.currentKnockPlayerId!, true);
+    if (s.currentKnockPlayerId === null) finishKnockIn(s);
+    else applyKnock(s, s.currentKnockPlayerId, true);
   }
   return s;
 }

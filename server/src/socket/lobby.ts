@@ -129,12 +129,31 @@ function scheduleTrickAdvance(io: Server, roomId: string) {
   }, TRICK_PAUSE_MS);
 }
 
+// Once everyone has knocked in, knock-in holds (currentKnockPlayerId === null)
+// so the last decision is visible. Pause ~2s, then advance the hand.
+const KNOCK_PAUSE_MS = 2000;
+const knockPending = new Set<string>();
+function scheduleKnockAdvance(io: Server, roomId: string) {
+  if (knockPending.has(roomId)) return;
+  knockPending.add(roomId);
+  setTimeout(() => {
+    knockPending.delete(roomId);
+    const res = manager.finishKnockIn(roomId);
+    if (!res.ok) return;
+    broadcastRoom(io, res.value);
+    driveTable(io, roomId);
+  }, KNOCK_PAUSE_MS);
+}
+
 /** Drive whatever the table needs next: finish a completed trick, or move bots. */
 function driveTable(io: Server, roomId: string) {
   const room = manager.getRoom(roomId);
   if (!room) return;
-  if (room.state.roundState === "trick-complete") {
+  const s = room.state;
+  if (s.roundState === "trick-complete") {
     scheduleTrickAdvance(io, roomId);
+  } else if (s.roundState === "knock-in" && s.currentKnockPlayerId === null) {
+    scheduleKnockAdvance(io, roomId);
   } else {
     driveBots(io, roomId);
   }

@@ -8,7 +8,7 @@ import {
   type GameState,
 } from "./state.js";
 import { clockwiseFromDealerLeft } from "./dealing.js";
-import { applyKnock } from "./knockIn.js";
+import { applyKnock, finishKnockIn } from "./knockIn.js";
 
 /** Build a deterministic knock-in state with a chosen dealer. */
 function knockState(
@@ -81,6 +81,10 @@ test("all non-dealers pass: dealer auto-wins the pot and the hand ends", () => {
   applyKnock(s, ids[0], false);
   applyKnock(s, ids[1], false);
   applyKnock(s, ids[2], false); // last non-dealer passes -> auto-win
+  // Knock-in holds for its end-of-phase pause; finishKnockIn advances it.
+  assert.equal(s.roundState, "knock-in");
+  assert.equal(s.currentKnockPlayerId, null);
+  finishKnockIn(s);
 
   assert.equal(s.roundState, "end");
   assert.equal(dealer.money, STARTING_MONEY + 12);
@@ -96,6 +100,7 @@ test("dealer knocks in: advances to discard-draw, first discard at dealer's left
   applyKnock(s, ids[1], false);
   applyKnock(s, ids[2], true);
   applyKnock(s, ids[3], true); // dealer knocks
+  finishKnockIn(s);
 
   assert.equal(s.roundState, "discard-draw");
   assert.equal(s.currentKnockPlayerId, null);
@@ -110,6 +115,7 @@ test("dealer who kept trump then passes goes set single; others still play", () 
   applyKnock(s, ids[1], false);
   applyKnock(s, ids[2], false);
   applyKnock(s, ids[3], false); // dealer passes after keeping trump
+  finishKnockIn(s);
 
   const dealer = s.players.find((p) => p.isDealer)!;
   assert.equal(dealer.wentSet, true);
@@ -125,6 +131,7 @@ test("dealer who did NOT keep trump can pass without going set", () => {
   applyKnock(s, ids[1], true);
   applyKnock(s, ids[2], false);
   applyKnock(s, ids[3], false); // dealer passes, no trump kept
+  finishKnockIn(s);
 
   const dealer = s.players.find((p) => p.isDealer)!;
   assert.equal(dealer.wentSet, false);

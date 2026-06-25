@@ -56,6 +56,26 @@ function resolveDealerDecision(state: GameState): void {
 }
 
 /**
+ * Complete the knock-in phase after its brief end-of-phase pause. Knock-in
+ * stays in place (currentKnockPlayerId === null) once everyone has decided, so
+ * the last decision is visible for a moment; this then actually advances —
+ * either the dealer auto-wins (all non-dealers passed) or we move to
+ * discard-draw (resolving the dealer's own decision along the way).
+ */
+export function finishKnockIn(state: GameState): void {
+  if (state.roundState !== "knock-in" || state.currentKnockPlayerId !== null) {
+    throw new Error("Knock-in is not awaiting completion");
+  }
+  const dealer = getPlayer(state, state.dealerId!)!;
+  if (dealer.hasKnockDecision) {
+    resolveDealerDecision(state);
+  } else {
+    // The dealer never had to act — every non-dealer passed.
+    awardPotToDealer(state);
+  }
+}
+
+/**
  * Apply a player's knock/pass decision. Validates turn order and the
  * hasKnockDecision gate, then either advances the turn, ends the hand
  * (dealer auto-win), or resolves the dealer's decision into discard-draw.
@@ -82,14 +102,13 @@ export function applyKnock(
   const anyNonDealerKnocked = nonDealers.some((p) => p.knockedIn);
   const dealerJustDecided = playerId === dealerId;
 
-  // All non-dealers passed -> dealer auto-wins without needing to act.
-  if (allNonDealersDecided && !anyNonDealerKnocked && !dealerJustDecided) {
-    awardPotToDealer(state);
-    return;
-  }
-
-  if (dealerJustDecided) {
-    resolveDealerDecision(state);
+  // Terminal: the dealer just decided (last to act), or every non-dealer passed
+  // (dealer auto-win). Don't advance yet — clear the turn pointer and stay in
+  // knock-in so the last decision shows; the socket layer pauses ~2s, then
+  // finishKnockIn() advances the hand.
+  const allPassed = allNonDealersDecided && !anyNonDealerKnocked;
+  if (dealerJustDecided || allPassed) {
+    state.currentKnockPlayerId = null;
     return;
   }
 
