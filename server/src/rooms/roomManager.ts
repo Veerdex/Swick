@@ -10,6 +10,7 @@ import { randomBytes } from "node:crypto";
 import {
   type Room,
   type RoomSummary,
+  type GameMode,
   createRoom,
   roomSummary,
   MIN_PLAYERS,
@@ -64,13 +65,17 @@ export class RoomManager {
       .map(roomSummary);
   }
 
-  createRoom(name: string, host: PlayerState): Result<Room> {
+  createRoom(
+    name: string,
+    host: PlayerState,
+    mode: GameMode = "casual",
+  ): Result<Room> {
     if (this.playerRoom.has(host.id)) return fail("You are already in a room");
 
     let id = makeRoomCode();
     while (this.rooms.has(id)) id = makeRoomCode();
 
-    const room = createRoom(id, name, host);
+    const room = createRoom(id, name, host, mode);
     this.rooms.set(id, room);
     this.playerRoom.set(host.id, id);
     return ok(room);
@@ -124,6 +129,7 @@ export class RoomManager {
     const room = this.getRoomForPlayer(hostId);
     if (!room) return fail("You are not in a room");
     if (room.hostId !== hostId) return fail("Only the host can add bots");
+    if (room.mode === "gamble") return fail("Gamble tables are human-only");
     if (room.started) return fail("Game already started");
     if (room.state.players.length >= MAX_PLAYERS) return fail("Room is full");
 

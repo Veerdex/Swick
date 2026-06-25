@@ -1,10 +1,15 @@
 // Client-side mirrors of the data the server sends.
 
+export type GameMode = "casual" | "gamble";
+
 export interface RoomSummary {
   id: string;
   name: string;
+  mode: GameMode;
   playerCount: number;
   maxPlayers: number;
+  /** Current pot — a gamble table needs your balance to exceed this to join. */
+  pot: number;
   started: boolean;
 }
 

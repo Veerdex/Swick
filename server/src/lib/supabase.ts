@@ -14,16 +14,25 @@ if (!url || !anonKey) {
   );
 }
 
-/** Verify an access token and return the Supabase user id, or null if invalid. */
-export async function verifyToken(token: string | undefined): Promise<string | null> {
+export interface AuthedUser {
+  userId: string;
+  /** True for anonymous guests; gamble mode requires a linked (non-guest) user. */
+  isGuest: boolean;
+}
+
+/** Verify an access token, returning the user id + guest flag, or null. */
+export async function verifyToken(
+  token: string | undefined,
+): Promise<AuthedUser | null> {
   if (!token) return null;
   try {
     const res = await fetch(`${url}/auth/v1/user`, {
       headers: { apikey: anonKey, Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return null;
-    const user = (await res.json()) as { id?: unknown };
-    return typeof user.id === "string" ? user.id : null;
+    const user = (await res.json()) as { id?: unknown; is_anonymous?: unknown };
+    if (typeof user.id !== "string") return null;
+    return { userId: user.id, isGuest: user.is_anonymous === true };
   } catch {
     return null;
   }

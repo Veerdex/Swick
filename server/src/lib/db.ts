@@ -69,6 +69,27 @@ export async function ensureProfile(userId: string): Promise<Profile> {
   throw new Error("ensureProfile: could not allocate a unique username");
 }
 
+/** Credit the daily bonus if it's a new day; returns the resulting balance. */
+export async function claimDaily(userId: string): Promise<number> {
+  const res = await fetch(`${url}/rest/v1/rpc/claim_daily`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ uid: userId }),
+  });
+  if (!res.ok) throw new Error(`claimDaily ${res.status}`);
+  return (await res.json()) as number;
+}
+
+/** Persist a player's currency (gamble winnings/losses). */
+export async function setCurrency(userId: string, amount: number): Promise<void> {
+  const res = await fetch(`${REST}?id=eq.${userId}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify({ currency: Math.round(amount) }),
+  });
+  if (!res.ok) throw new Error(`setCurrency ${res.status}`);
+}
+
 export type SetUsernameResult = "ok" | "taken" | "invalid";
 
 /** Set a user's username (case-insensitive unique). */

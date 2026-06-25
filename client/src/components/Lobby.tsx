@@ -4,7 +4,7 @@ import { linkGoogle } from "../lib/supabase";
 import { useAuth } from "../lib/useAuth";
 import { loadProfile, setUsername } from "../lib/profile";
 import SwickCards from "./SwickCards";
-import type { ActionAck, RoomSummary } from "../types";
+import type { ActionAck, GameMode, RoomSummary } from "../types";
 
 // Shared casino styling: deep-red panels with a gold border, gold-bordered
 // centered inputs.
@@ -28,6 +28,7 @@ const USERNAME_MSG: Record<string, string> = {
 export default function Lobby({ onEntered }: LobbyProps) {
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [roomName, setRoomName] = useState("");
+  const [createMode, setCreateMode] = useState<GameMode>("casual");
   const [error, setError] = useState<string | null>(null);
   const auth = useAuth();
 
@@ -82,7 +83,7 @@ export default function Lobby({ onEntered }: LobbyProps) {
     setError(null);
     socket.emit(
       "room:create",
-      { name: roomName },
+      { name: roomName, mode: createMode },
       (ack: ActionAck) => (ack.ok ? onEntered() : setError(ack.error ?? "Failed")),
     );
   };
@@ -160,6 +161,31 @@ export default function Lobby({ onEntered }: LobbyProps) {
         <h2 className="mb-3 text-center text-sm font-semibold text-amber-100">
           Create a table
         </h2>
+        {/* Casual vs Gamble — gamble needs a linked account */}
+        <div className="mb-3 flex justify-center gap-2">
+          <button
+            onClick={() => setCreateMode("casual")}
+            className={`rounded-lg px-4 py-1.5 text-sm font-semibold ${
+              createMode === "casual"
+                ? "bg-gradient-to-b from-amber-300 to-amber-600 text-red-950"
+                : "border border-amber-400/40 text-amber-100/80"
+            }`}
+          >
+            Casual
+          </button>
+          <button
+            onClick={() => !auth.isGuest && setCreateMode("gamble")}
+            disabled={auth.isGuest}
+            title={auth.isGuest ? "Link an account to play gamble mode" : ""}
+            className={`rounded-lg px-4 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
+              createMode === "gamble"
+                ? "bg-gradient-to-b from-amber-300 to-amber-600 text-red-950"
+                : "border border-amber-400/40 text-amber-100/80"
+            }`}
+          >
+            Gamble
+          </button>
+        </div>
         <div className="flex gap-2">
           <input
             value={roomName}
@@ -186,26 +212,49 @@ export default function Lobby({ onEntered }: LobbyProps) {
           </p>
         ) : (
           <ul className="space-y-2">
-            {rooms.map((room) => (
-              <li
-                key={room.id}
-                className="flex items-center justify-between rounded-lg border border-amber-400/30 bg-red-950/50 px-3 py-2"
-              >
-                <div>
-                  <p className="text-sm font-medium text-amber-50">{room.name}</p>
-                  <p className="text-xs text-amber-100/60">
-                    {room.playerCount}/{room.maxPlayers} players · #{room.id}
-                  </p>
-                </div>
-                <button
-                  onClick={() => joinRoom(room.id)}
-                  disabled={room.playerCount >= room.maxPlayers}
-                  className={`${GOLD_BTN} px-3 py-1.5`}
+            {rooms.map((room) => {
+              const gamble = room.mode === "gamble";
+              const gambleBlocked =
+                gamble && (auth.isGuest || currency <= room.pot);
+              const full = room.playerCount >= room.maxPlayers;
+              const joinTitle = auth.isGuest
+                ? "Gamble mode requires an account"
+                : gambleBlocked
+                  ? `Need more than ${room.pot}¢ to join`
+                  : "";
+              return (
+                <li
+                  key={room.id}
+                  className="flex items-center justify-between rounded-lg border border-amber-400/30 bg-red-950/50 px-3 py-2"
                 >
-                  Join
-                </button>
-              </li>
-            ))}
+                  <div>
+                    <p className="flex items-center gap-2 text-sm font-medium text-amber-50">
+                      {room.name}
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                          gamble
+                            ? "bg-amber-400 text-red-950"
+                            : "bg-slate-500/40 text-amber-100/80"
+                        }`}
+                      >
+                        {room.mode}
+                      </span>
+                    </p>
+                    <p className="text-xs text-amber-100/60">
+                      {room.playerCount}/{room.maxPlayers} players · #{room.id}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => joinRoom(room.id)}
+                    disabled={full || gambleBlocked}
+                    title={joinTitle}
+                    className={`${GOLD_BTN} px-3 py-1.5`}
+                  >
+                    Join
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { Server } from "socket.io";
 import { registerLobbyHandlers } from "./socket/lobby.js";
 import { verifyToken } from "./lib/supabase.js";
-import { ensureProfile } from "./lib/db.js";
+import { ensureProfile, claimDaily } from "./lib/db.js";
 
 // Railway injects PORT in production; fall back to 3001 for local dev.
 const PORT = Number(process.env.PORT) || 3001;
@@ -25,22 +25,23 @@ const io = new Server(httpServer, {
 // From here on, that user id (not the volatile socket.id) is the player's key.
 io.use(async (socket, next) => {
   const token = (socket.handshake.auth as { token?: string })?.token;
-  const userId = await verifyToken(token);
-  if (!userId) {
+  const auth = await verifyToken(token);
+  if (!auth) {
     next(new Error("unauthorized"));
     return;
   }
-  socket.data.userId = userId;
-  // Ensure the player has a profile and stamp their (unique) username onto the
-  // socket — that's the authoritative in-game name. Best-effort so a transient
-  // DB hiccup doesn't block play.
+  socket.data.userId = auth.userId;
+  socket.data.isGuest = auth.isGuest; // gamble mode requires a non-guest
+  // Ensure a profile + apply the daily bonus, and stamp the (unique) username
+  // and current balance onto the socket. Best-effort so a transient DB hiccup
+  // doesn't block play.
   try {
-    const profile = await ensureProfile(userId);
+    const profile = await ensureProfile(auth.userId);
     socket.data.username = profile.username;
-    socket.data.currency = profile.currency;
+    socket.data.currency = await claimDaily(auth.userId); // applies +250/day
   } catch (err) {
-    console.error("ensureProfile failed:", err);
-    socket.data.username = "Player" + userId.slice(0, 4);
+    console.error("profile setup failed:", err);
+    socket.data.username = "Player" + auth.userId.slice(0, 4);
     socket.data.currency = 1000;
   }
   next();

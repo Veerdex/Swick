@@ -13,7 +13,8 @@ import {
   botDiscardDecision,
   botPlayDecision,
 } from "../game/bots.js";
-import { setUsername } from "../lib/db.js";
+import { setUsername, setCurrency } from "../lib/db.js";
+import type { GameMode } from "../rooms/room.js";
 
 // One shared manager for the whole server process (in-memory state).
 const manager = new RoomManager();
@@ -120,6 +121,7 @@ function scheduleTrickAdvance(io: Server, roomId: string) {
     const res = manager.finishTrick(roomId);
     if (!res.ok) return;
     broadcastRoom(io, res.value);
+    persistGamble(res.value);
     driveTable(io, roomId); // next trick's bots, or the end of the hand
   }, TRICK_PAUSE_MS);
 }
@@ -136,6 +138,7 @@ function scheduleKnockAdvance(io: Server, roomId: string) {
     const res = manager.finishKnockIn(roomId);
     if (!res.ok) return;
     broadcastRoom(io, res.value);
+    persistGamble(res.value);
     driveTable(io, roomId);
   }, KNOCK_PAUSE_MS);
 }
@@ -156,6 +159,15 @@ function driveTable(io: Server, roomId: string) {
 
 type Ack = ((response: unknown) => void) | undefined;
 
+/** At a gamble hand's end, persist each human player's balance to their account. */
+function persistGamble(room: Room) {
+  if (room.mode !== "gamble" || room.state.roundState !== "end") return;
+  for (const p of room.state.players) {
+    if (p.isBot) continue;
+    setCurrency(p.id, p.money).catch((e) => console.error("persistGamble:", e));
+  }
+}
+
 /** Ack a Result, broadcasting the updated room on success and driving bots. */
 function settle(io: Server, res: Result<Room>, ack: Ack) {
   if (!res.ok) {
@@ -164,12 +176,19 @@ function settle(io: Server, res: Result<Room>, ack: Ack) {
   }
   ack?.({ ok: true });
   broadcastRoom(io, res.value);
+  persistGamble(res.value);
   driveTable(io, res.value.id);
 }
 
 /** Leave whatever room this player is in, broadcasting to anyone still there. */
 function handleLeave(io: Server, socket: Socket) {
   const userId = socket.data.userId as string;
+  // In a gamble game, save their current balance before they leave the seat.
+  const before = manager.getRoomForPlayer(userId);
+  if (before?.mode === "gamble") {
+    const me = before.state.players.find((p) => p.id === userId);
+    if (me) setCurrency(userId, me.money).catch((e) => console.error("leave save:", e));
+  }
   const { room, closed } = manager.leaveRoom(userId);
   if (room && !closed) broadcastRoom(io, room);
   if (room) socket.leave(room.id);
@@ -181,6 +200,8 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
   // which is the in-game name — the client no longer supplies a name.
   const userId = socket.data.userId as string;
   const nameOf = () => (socket.data.username as string) ?? "Player";
+  const isGuest = () => socket.data.isGuest === true;
+  const balance = () => (socket.data.currency as number) ?? 0;
 
   socket.on("lobby:list", (ack: Ack) => ack?.(manager.listRooms()));
 
@@ -192,19 +213,37 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     }),
   );
 
-  socket.on("room:create", (payload: { name?: string }, ack: Ack) => {
-    const player = createPlayer(userId, nameOf());
-    const res = manager.createRoom(payload?.name ?? "", player);
-    if (!res.ok) return ack?.({ ok: false, error: res.error });
+  socket.on(
+    "room:create",
+    (payload: { name?: string; mode?: GameMode }, ack: Ack) => {
+      const mode: GameMode = payload?.mode === "gamble" ? "gamble" : "casual";
+      if (mode === "gamble" && isGuest()) {
+        return ack?.({ ok: false, error: "Gamble mode requires an account" });
+      }
+      const player = createPlayer(userId, nameOf());
+      if (mode === "gamble") player.money = balance(); // play with real currency
+      const res = manager.createRoom(payload?.name ?? "", player, mode);
+      if (!res.ok) return ack?.({ ok: false, error: res.error });
 
-    socket.join(res.value.id);
-    ack?.({ ok: true, roomId: res.value.id });
-    broadcastRoom(io, res.value);
-    broadcastLobby(io);
-  });
+      socket.join(res.value.id);
+      ack?.({ ok: true, roomId: res.value.id });
+      broadcastRoom(io, res.value);
+      broadcastLobby(io);
+    },
+  );
 
   socket.on("room:join", (payload: { roomId?: string }, ack: Ack) => {
+    const room = manager.getRoom(payload?.roomId ?? "");
+    if (room?.mode === "gamble") {
+      if (isGuest()) {
+        return ack?.({ ok: false, error: "Gamble mode requires an account" });
+      }
+      if (balance() <= room.state.potValue) {
+        return ack?.({ ok: false, error: "You need more than the pot to join" });
+      }
+    }
     const player = createPlayer(userId, nameOf());
+    if (room?.mode === "gamble") player.money = balance();
     const res = manager.joinRoom(payload?.roomId ?? "", player);
     if (!res.ok) return ack?.({ ok: false, error: res.error });
 
