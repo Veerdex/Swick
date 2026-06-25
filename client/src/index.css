@@ -306,6 +306,22 @@ body {
   animation: pop-in 0.3s ease-out backwards;
 }
 
+/* A card being played into a trick: slides from the player's seat (--px/--py)
+   to its spot near the center, growing slightly as it lands. */
+@keyframes play-card {
+  from {
+    transform: translate(var(--px, 0), var(--py, 0)) scale(0.9);
+    opacity: 0.5;
+  }
+  to {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+}
+.play-card {
+  animation: play-card 0.3s ease-out backwards;
+}
+
 /* Rotating gold sunburst behind the Play button. */
 @keyframes intro-spin {
   to {

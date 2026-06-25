@@ -335,6 +335,14 @@ export default function GameTable({ room }: { room: RoomView }) {
   // Post-decision reveal (info text + card to dealer + flip your hand).
   const [decisionRevealed, setDecisionRevealed] = useState(false);
   const [trumpLanded, setTrumpLanded] = useState(false);
+  // Tracks the round state so we can detect a brand-new hand starting.
+  const prevRoundState = useRef(state.roundState);
+  // Cards flying back to the deck when a player passes (folds out of the hand).
+  const [passFx, setPassFx] = useState<Record<string, { count: number; key: number }>>(
+    {},
+  );
+  // Your own discarded cards flying (face-up) to the deck during a swap.
+  const [outFx, setOutFx] = useState<{ cards: CardT[]; key: number } | null>(null);
   const revealed = sequence.slice(0, revealCount);
 
   // --- Seat layout (you at the bottom, others clockwise) ---
@@ -429,8 +437,17 @@ export default function GameTable({ room }: { room: RoomView }) {
       return next;
     });
   };
-  const acceptDiscard = () =>
+  const acceptDiscard = () => {
+    // Fly the actual cards you're discarding (face-up) to the deck, right away.
+    const cards = [...selectedDiscards]
+      .map((i) => me?.hand[i])
+      .filter((c): c is CardT => !!c);
+    if (cards.length) {
+      setOutFx({ cards, key: Date.now() });
+      setTimeout(() => setOutFx(null), 700);
+    }
     socket.emit("room:discard", { indices: [...selectedDiscards] }, () => {});
+  };
 
   // --- Trick-taking ---
   const inTricks =
@@ -447,6 +464,22 @@ export default function GameTable({ room }: { room: RoomView }) {
   };
   const isHost = room.hostId === youId;
   const nextHand = () => socket.emit("room:nextHand", () => {});
+
+  // A player passed (folded): fly their cards back to the deck, then drop them.
+  const flyPassCards = (pid: string, count: number) => {
+    if (count <= 0) return;
+    setPassFx((prev) => ({
+      ...prev,
+      [pid]: { count, key: Date.now() + Math.random() },
+    }));
+    setTimeout(() => {
+      setPassFx((prev) => {
+        const next = { ...prev };
+        delete next[pid];
+        return next;
+      });
+    }, 700);
+  };
 
   // Any moment it's your turn to act — drives the pulsing gold screen-edge glow.
   const myTurn =
@@ -576,6 +609,21 @@ export default function GameTable({ room }: { room: RoomView }) {
     return () => clearTimeout(t);
   }, [phase]);
 
+  // A new hand has started (the previous one ended and the table is dealing
+  // again): replay the deal animation so the cards visibly go back out. The
+  // dealer is already known here, so we skip straight to dealing.
+  useEffect(() => {
+    const prev = prevRoundState.current;
+    prevRoundState.current = state.roundState;
+    if (prev === "end" && state.roundState !== "end" && state.roundState !== "idle") {
+      setDecisionRevealed(false);
+      setTrumpLanded(false);
+      setPassFx({});
+      setDealtCount(0);
+      setPhase("dealing");
+    }
+  }, [state.roundState]);
+
   // Decision countdown: tick the number, then auto-act at zero.
   useEffect(() => {
     if (!activeDecision) return;
@@ -607,15 +655,16 @@ export default function GameTable({ room }: { room: RoomView }) {
     const newly: Record<string, { knockedIn: boolean; key: number }> = {};
     for (const p of players) {
       const was = prevDecided.current[p.id] ?? false;
-      if (
+      const newlyDecided =
         phase === "live" &&
         state.roundState === "knock-in" &&
         !was &&
-        p.hasKnockDecision &&
-        p.id !== youId
-      ) {
+        p.hasKnockDecision;
+      if (newlyDecided && p.id !== youId) {
         newly[p.id] = { knockedIn: p.knockedIn, key: Date.now() + Math.random() };
       }
+      // Anyone who passes (you included) sends their cards back to the deck.
+      if (newlyDecided && !p.knockedIn) flyPassCards(p.id, p.handCount);
       prevDecided.current[p.id] = p.hasKnockDecision;
     }
     if (Object.keys(newly).length) {
@@ -652,6 +701,7 @@ export default function GameTable({ room }: { room: RoomView }) {
                 [p.id]: { knockedIn: p.knockedIn, key: Date.now() + Math.random() },
               },
         );
+        if (!p.knockedIn) flyPassCards(p.id, p.handCount);
       }, i * 500),
     );
     return () => timers.forEach(clearTimeout);
@@ -868,6 +918,10 @@ export default function GameTable({ room }: { room: RoomView }) {
             hand = Array(count).fill(null);
           }
 
+          // A player who passed has sent their cards back to the deck, so they
+          // hold none for the rest of the hand (the fly-out plays separately).
+          if (phase === "live" && p.hasKnockDecision && !p.knockedIn) hand = [];
+
           return (
             <Seat
               key={p.id}
@@ -894,7 +948,8 @@ export default function GameTable({ room }: { room: RoomView }) {
         })}
 
       {/* Cards played into the current trick, drawn between each seat and the
-          center; the winner's card is highlighted during the trick-complete pause. */}
+          center; each slides in from its player's seat as it's played, and the
+          winner's card is highlighted during the trick-complete pause. */}
       {inTricks &&
         state.currentTrick.map(({ playerId, card }) => {
           const seat = posOf(playerId);
@@ -907,17 +962,48 @@ export default function GameTable({ room }: { room: RoomView }) {
           return (
             <div
               key={playerId}
-              className="pop-in pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
+              className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
               style={{ left: `${x}%`, top: `${y}%` }}
             >
-              <Card card={card} highlight={won} color={colorOf(playerId)} />
+              <div
+                className="play-card"
+                style={
+                  { "--px": `${seat.x - x}vw`, "--py": `${seat.y - y}vh` } as CSSProperties
+                }
+              >
+                <Card card={card} highlight={won} color={colorOf(playerId)} />
+              </div>
             </div>
           );
         })}
 
-      {/* Swap: discarded cards fly from the seat to the deck */}
+      {/* Your own discard flies face-up to the deck (the actual cards). */}
+      {outFx && (
+        <div
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
+          style={{
+            left: `${USER_POS.x}%`,
+            top: `${USER_POS.y}%`,
+            ...deckFly(USER_POS),
+          }}
+        >
+          {outFx.cards.map((c, i) => (
+            <div
+              key={i}
+              className="fly-to-deck absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: i * 10 }}
+            >
+              <Card card={c} size="md" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Swap: opponents' discarded cards fly (face-down) from the seat to the
+          deck. Your own swap is handled face-up by outFx above. */}
       {swapFx &&
         swapFx.out > 0 &&
+        swapFx.playerId !== youId &&
         (() => {
           const pos = posOf(swapFx.playerId);
           const big = swapFx.playerId === youId;
@@ -939,6 +1025,29 @@ export default function GameTable({ room }: { room: RoomView }) {
             </div>
           );
         })()}
+
+      {/* Pass: a folded player's whole hand flies back to the deck */}
+      {Object.entries(passFx).map(([pid, fx]) => {
+        const pos = posOf(pid);
+        const big = pid === youId;
+        return (
+          <div
+            key={fx.key}
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${pos.x}%`, top: `${pos.y}%`, ...deckFly(pos) }}
+          >
+            {Array.from({ length: fx.count }).map((_, i) => (
+              <div
+                key={i}
+                className="fly-to-deck absolute -translate-x-1/2 -translate-y-1/2"
+                style={{ left: i * 6 }}
+              >
+                <Card card={null} size={big ? "md" : "sm"} />
+              </div>
+            ))}
+          </div>
+        );
+      })}
 
       {/* Trump card on the table (before the decision, or after a pass).
           Cleared once trick-taking starts so it doesn't clutter the trick. */}
