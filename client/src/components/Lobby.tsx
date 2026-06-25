@@ -45,9 +45,14 @@ export default function Lobby({ onEntered }: LobbyProps) {
   const [nameMsg, setNameMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Swipeable pager: a horizontal scroll-snap container, one page per tab.
+  // Swipeable pager: a horizontal scroll-snap container, one page per tab. The
+  // indicator follows the *continuous* scroll position (progress, a float in
+  // [0, TABS.length-1]) so it tracks the finger 1:1 and slides smoothly during
+  // a tap-driven smooth-scroll — no fighting between click state and scroll
+  // events (which previously made the pill jerk at the start of a jump).
   const pagerRef = useRef<HTMLDivElement>(null);
-  const [page, setPage] = useState(HOME_PAGE);
+  const [progress, setProgress] = useState(HOME_PAGE);
+  const page = Math.round(progress); // which tab is "active" (text colour)
 
   // Open on the Tables page without a visible scroll animation (pre-paint).
   useLayoutEffect(() => {
@@ -55,18 +60,14 @@ export default function Lobby({ onEntered }: LobbyProps) {
     if (el) el.scrollLeft = HOME_PAGE * el.clientWidth;
   }, []);
 
-  // Keep the active tab in sync as the user swipes.
   const onPagerScroll = () => {
     const el = pagerRef.current;
-    if (!el) return;
-    const next = Math.round(el.scrollLeft / el.clientWidth);
-    if (next !== page) setPage(next);
+    if (el) setProgress(el.scrollLeft / el.clientWidth);
   };
 
   const goTo = (i: number) => {
     const el = pagerRef.current;
     if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
-    setPage(i);
   };
 
   useEffect(() => {
@@ -137,42 +138,19 @@ export default function Lobby({ onEntered }: LobbyProps) {
   };
 
   return (
-    <div className="w-full max-w-xl pt-14">
+    <div className="flex h-[calc(100dvh-3rem)] w-full max-w-xl flex-col pt-12">
       {/* Floating SWICK title */}
-      <div className="flex flex-col items-center pt-2">
+      <div className="flex shrink-0 flex-col items-center pt-2">
         <SwickCards variant="float" />
       </div>
 
-      {/* Tab bar — doubles as the active-page indicator. Tap to jump, or swipe
-          the pages below. A single gold pill slides between tabs (the buttons
-          are equal-width and gapless, so it lands exactly on each one). */}
-      <div className="relative mt-5 flex rounded-xl border border-amber-400/40 bg-red-950/60 p-1">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-1 left-1 rounded-lg bg-gradient-to-b from-amber-300 to-amber-600 transition-transform duration-300 ease-out"
-          style={{
-            width: "calc((100% - 0.5rem) / 3)",
-            transform: `translateX(${page * 100}%)`,
-          }}
-        />
-        {TABS.map((label, i) => (
-          <button
-            key={label}
-            onClick={() => goTo(i)}
-            className={`relative z-10 flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
-              page === i ? "text-red-950" : "text-amber-100/70 hover:text-amber-100"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Swipeable pager: one full-width, vertically-scrolling page per tab. */}
+      {/* Swipeable pager: one full-width, vertically-scrolling page per tab.
+          flex-1 + min-h-0 lets it fill the space between the title and the
+          bottom tab bar (and scroll internally) instead of fixing a height. */}
       <div
         ref={pagerRef}
         onScroll={onPagerScroll}
-        className="no-scrollbar mt-4 flex h-[68vh] snap-x snap-mandatory overflow-x-auto"
+        className="no-scrollbar mt-4 flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto"
       >
         {/* ─────────────── Settings ─────────────── */}
         <section className="h-full w-full shrink-0 snap-center space-y-6 overflow-y-auto px-px pb-2">
@@ -367,6 +345,32 @@ export default function Lobby({ onEntered }: LobbyProps) {
         </p>
       )}
         </section>
+      </div>
+
+      {/* Bottom tab bar — doubles as the active-page indicator. Tap to jump, or
+          swipe the pages above. The gold pill follows the continuous scroll
+          position, so it tracks the finger and slides smoothly between tabs.
+          shrink-0 keeps it a fixed height pinned just inside the frame. */}
+      <div className="relative mt-4 flex shrink-0 rounded-xl border border-amber-400/40 bg-red-950/60 p-1">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-1 left-1 rounded-lg bg-gradient-to-b from-amber-300 to-amber-600 will-change-transform"
+          style={{
+            width: "calc((100% - 0.5rem) / 3)",
+            transform: `translateX(${progress * 100}%)`,
+          }}
+        />
+        {TABS.map((label, i) => (
+          <button
+            key={label}
+            onClick={() => goTo(i)}
+            className={`relative z-10 flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+              page === i ? "text-red-950" : "text-amber-100/70 hover:text-amber-100"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
     </div>
   );
