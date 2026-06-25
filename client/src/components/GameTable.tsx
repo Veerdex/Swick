@@ -319,6 +319,10 @@ export default function GameTable({
   const { state, youId } = room;
   const players = state.players;
   const n = players.length;
+  // Solo casual game (one human vs bots): no one is waiting on you, so drop the
+  // per-move and end-screen time limits. Reverts the moment a 2nd human is in.
+  const noTimers =
+    room.mode === "casual" && players.filter((p) => !p.isBot).length === 1;
   const dealer = players.find((p) => p.id === state.dealerId);
   const me = players.find((p) => p.id === youId);
   const iAmDealer = state.dealerId === youId;
@@ -716,7 +720,7 @@ export default function GameTable({
     // anyone while the table waits below the minimum for players to refill —
     // they're legitimately waiting, not idle.
     if (phase !== "live" || state.roundState !== "end" || isSpectator) return;
-    if (players.length < MIN_PLAYERS) return;
+    if (players.length < MIN_PLAYERS || noTimers) return;
     setEndSeconds(END_KICK_S);
     const start = Date.now();
     const id = setInterval(() => {
@@ -728,11 +732,12 @@ export default function GameTable({
       }
     }, 250);
     return () => clearInterval(id);
-  }, [phase, state.roundState, isSpectator, players.length]);
+  }, [phase, state.roundState, isSpectator, players.length, noTimers]);
 
-  // Decision countdown: tick the number, then auto-act at zero.
+  // Decision countdown: tick the number, then auto-act at zero. Skipped in a
+  // solo casual game — no clock, no auto-action.
   useEffect(() => {
-    if (!activeDecision) return;
+    if (!activeDecision || noTimers) return;
     setSecondsLeft(decisionTotal);
     const start = Date.now();
     const tick = setInterval(() => {
@@ -748,7 +753,7 @@ export default function GameTable({
       clearInterval(tick);
       clearTimeout(timeout);
     };
-  }, [activeDecision, decisionTotal]);
+  }, [activeDecision, decisionTotal, noTimers]);
 
   // Clear the discard selection when the turn or trim step changes.
   useEffect(() => {
@@ -1291,7 +1296,7 @@ export default function GameTable({
       {/* Dealer's keep/pass decision — big glowing trump card, centered */}
       {showTrumpDecision && (
         <div className="fixed inset-0 z-30 flex flex-col items-center justify-center gap-6 bg-black/35">
-          <CountdownRing seconds={secondsLeft} total={decisionTotal} />
+          {!noTimers && <CountdownRing seconds={secondsLeft} total={decisionTotal} />}
           <p className="text-2xl font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] sm:text-3xl">
             Keep the trump card?
           </p>
@@ -1318,7 +1323,7 @@ export default function GameTable({
       {/* Your knock-in decision */}
       {showKnockDecision && (
         <div className="fixed inset-0 z-30 flex flex-col items-center justify-center gap-7 bg-black/35">
-          <CountdownRing seconds={secondsLeft} total={decisionTotal} />
+          {!noTimers && <CountdownRing seconds={secondsLeft} total={decisionTotal} />}
           <p className="text-2xl font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] sm:text-3xl">
             Knock in or pass?
           </p>
@@ -1342,7 +1347,7 @@ export default function GameTable({
       {/* Discard / swap controls (your hand stays tappable below) */}
       {myTurnToDiscard && (
         <div className="absolute left-1/2 top-[60%] z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3">
-          <CountdownRing seconds={secondsLeft} total={decisionTotal} />
+          {!noTimers && <CountdownRing seconds={secondsLeft} total={decisionTotal} />}
           <p className="rounded bg-black/40 px-3 py-1 text-center text-sm font-semibold text-white drop-shadow sm:text-base">
             {trimming
               ? "You kept the trump — discard 1 card"
@@ -1399,7 +1404,7 @@ export default function GameTable({
       {/* Your-turn prompt + countdown during trick-taking */}
       {myTurnToPlay && (
         <div className="absolute left-1/2 top-[62%] z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2">
-          <CountdownRing seconds={secondsLeft} total={PLAY_TIMEOUT_S} />
+          {!noTimers && <CountdownRing seconds={secondsLeft} total={PLAY_TIMEOUT_S} />}
           <p className="animate-pulse whitespace-nowrap rounded bg-black/45 px-3 py-1 text-center text-sm font-semibold text-white drop-shadow sm:text-base">
             Your turn — play a card
           </p>
@@ -1464,7 +1469,7 @@ export default function GameTable({
               {isHost ? "Play Again?" : "Waiting…"}
             </button>
           )}
-          {!isSpectator && players.length >= MIN_PLAYERS && (
+          {!isSpectator && players.length >= MIN_PLAYERS && !noTimers && (
             <p className="mt-1 text-sm font-semibold text-amber-100/70 drop-shadow">
               Leaving in {endSeconds}s
             </p>
