@@ -17,7 +17,7 @@ import {
   MAX_PLAYERS,
 } from "./room.js";
 import { type PlayerState, MIN_ANTE, createPlayer } from "../game/state.js";
-import { startHand, dealerTrumpDecision } from "../game/dealing.js";
+import { startHand, dealerTrumpDecision, DEALER_EXTRA } from "../game/dealing.js";
 import { applyKnock, finishKnockIn } from "../game/knockIn.js";
 import { applyDiscard } from "../game/discard.js";
 import { playCard, finishTrick } from "../game/tricks.js";
@@ -125,6 +125,11 @@ export class RoomManager {
       room.spectators = room.spectators.filter((s) => s.id !== playerId);
       return { room, closed: false };
     }
+    // A sitting-out player leaving drops out of that list.
+    if (room.sittingOut.some((p) => p.id === playerId)) {
+      room.sittingOut = room.sittingOut.filter((p) => p.id !== playerId);
+      return { room, closed: false };
+    }
 
     room.state.players = room.state.players.filter((p) => p.id !== playerId);
 
@@ -133,6 +138,7 @@ export class RoomManager {
       // No humans left — close the room and release any bots + watchers.
       for (const p of room.state.players) this.playerRoom.delete(p.id);
       for (const s of room.spectators) this.playerRoom.delete(s.id);
+      for (const p of room.sittingOut) this.playerRoom.delete(p.id);
       this.rooms.delete(roomId);
       return { room, closed: true };
     }
@@ -220,6 +226,29 @@ export class RoomManager {
   }
 
   /**
+   * Before a gamble hand, re-seat sitting-out players who can now afford the pot
+   * and drop seated players who can't. Casual rooms are untouched. Returns how
+   * many players will actually be in the hand.
+   */
+  private reseatGamble(room: Room): number {
+    if (room.mode !== "gamble") return room.state.players.length;
+
+    const all = [...room.state.players, ...room.sittingOut];
+    const ante = room.state.anteAmount;
+    const carried = room.state.nextRoundPotBonus;
+    // The pot a hand would create — a carried set bonus is a free ride (no new
+    // antes). You must be able to cover it (a set costs the pot) to play.
+    const pot = (carried > 0 ? 0 : all.length * ante) + DEALER_EXTRA + carried;
+
+    const seated: PlayerState[] = [];
+    const out: PlayerState[] = [];
+    for (const p of all) (p.money > pot ? seated : out).push(p);
+    room.state.players = seated;
+    room.sittingOut = out;
+    return seated.length;
+  }
+
+  /**
    * Host starts the game: mark the room started (removing it from the lobby)
    * and deal the first hand, leaving the dealer to decide on the trump card.
    */
@@ -232,6 +261,9 @@ export class RoomManager {
     }
     if (!this.canStart(room)) {
       return fail("Everyone must be ready and the ante must be set");
+    }
+    if (this.reseatGamble(room) < MIN_PLAYERS) {
+      return fail(`Need ${MIN_PLAYERS} players who can cover the pot`);
     }
 
     room.started = true;
@@ -323,6 +355,11 @@ export class RoomManager {
     if (!room) return fail("You are not in a room");
     if (room.hostId !== playerId) return fail("Only the host deals the next hand");
     if (room.state.roundState !== "end") return fail("The hand isn't over yet");
+
+    // Re-seat/drop players by who can afford the next pot (gamble only).
+    if (this.reseatGamble(room) < MIN_PLAYERS) {
+      return fail(`Need ${MIN_PLAYERS} players who can cover the pot`);
+    }
 
     startHand(room.state);
     return ok(room);

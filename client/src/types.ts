@@ -92,6 +92,11 @@ export interface RoomView {
   youId: string;
   /** True when watching (not seated) — all hands are hidden and no actions. */
   isSpectator: boolean;
+  /**
+   * True when sitting out the current hand because you can't cover the pot
+   * (gamble mode). A subset of isSpectator — you auto-rejoin when affordable.
+   */
+  isSittingOut: boolean;
   state: GameView;
 }
 

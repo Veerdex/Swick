@@ -30,6 +30,11 @@ export interface Room {
   mode: GameMode;
   /** Watchers — they receive a fully hidden-hand view and take no actions. */
   spectators: Spectator[];
+  /**
+   * Gamble players sitting out the current hand because they can't cover the
+   * pot. Their full state (balance) is kept so they auto-rejoin when affordable.
+   */
+  sittingOut: PlayerState[];
   /** Once true, the room no longer appears in the joinable lobby list. */
   started: boolean;
   createdAt: number;
@@ -62,6 +67,7 @@ export function createRoom(
     hostId: host.id,
     mode,
     spectators: [],
+    sittingOut: [],
     started: false,
     createdAt: Date.now(),
     state: createGameState([host]),

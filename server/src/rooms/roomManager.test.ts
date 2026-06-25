@@ -163,3 +163,57 @@ test("a player who left can create/join again", () => {
   mgr.leaveRoom("host");
   assert.ok(mgr.createRoom("Fresh", host).ok);
 });
+
+/** Build a ready-to-start gamble room with players at the given balances. */
+function gambleRoom(balances: Record<string, number>, ante = 3) {
+  const mgr = new RoomManager();
+  const ids = Object.keys(balances);
+  const host = createPlayer(ids[0], ids[0].toUpperCase());
+  host.money = balances[ids[0]];
+  const res = mgr.createRoom("Gamble Table", host, "gamble");
+  assert.ok(res.ok);
+  const room = res.value;
+  for (const id of ids.slice(1)) {
+    const p = createPlayer(id, id.toUpperCase());
+    p.money = balances[id];
+    assert.ok(mgr.joinRoom(room.id, p).ok);
+  }
+  assert.ok(mgr.setAnte("host", ante).ok);
+  for (const id of ids) assert.ok(mgr.setReady(id, true).ok);
+  return { mgr, room };
+}
+
+test("gamble: players who can't cover the pot sit out the hand", () => {
+  // 4 players, ante 3 -> pot = 4*3 + 3 dealer extra = 15. Need money > 15.
+  const { mgr, room } = gambleRoom({ host: 1000, r1: 1000, r2: 1000, broke: 5 });
+  assert.ok(mgr.startGame("host").ok);
+
+  const seated = room.state.players.map((p) => p.id).sort();
+  assert.deepEqual(seated, ["host", "r1", "r2"]);
+  assert.equal(room.sittingOut.length, 1);
+  assert.equal(room.sittingOut[0].id, "broke");
+  // The sitting-out player keeps their balance for a later rejoin.
+  assert.equal(room.sittingOut[0].money, 5);
+});
+
+test("gamble: start fails when too few players can cover the pot", () => {
+  // Only 2 of 3 can afford -> below MIN_PLAYERS.
+  const { mgr } = gambleRoom({ host: 1000, r1: 1000, broke: 2 });
+  const res = mgr.startGame("host");
+  assert.equal(res.ok, false);
+});
+
+test("gamble: casual rooms never sit anyone out", () => {
+  const mgr = new RoomManager();
+  const host = createPlayer("host", "Host");
+  host.money = 1; // wouldn't cover a gamble pot, but casual ignores money
+  const created = mgr.createRoom("Casual", host, "casual");
+  assert.ok(created.ok);
+  const room = created.value;
+  mgr.setAnte("host", 3);
+  mgr.setReady("host", true);
+  fillReady(mgr, room, 2);
+  assert.ok(mgr.startGame("host").ok);
+  assert.equal(room.sittingOut.length, 0);
+  assert.equal(room.state.players.length, 3);
+});

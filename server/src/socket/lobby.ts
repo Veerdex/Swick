@@ -29,9 +29,12 @@ function roomStateFor(room: Room, viewerId: string) {
     started: room.started,
     canStart: manager.canStart(room),
     youId: viewerId,
-    // A spectator isn't in state.players, so viewFor already hides every hand;
-    // this flag just tells the client to render the watcher UI.
-    isSpectator: room.spectators.some((s) => s.id === viewerId),
+    // Spectators and sitting-out players aren't in state.players, so viewFor
+    // already hides every hand; these flags drive the watcher UI.
+    isSpectator:
+      room.spectators.some((s) => s.id === viewerId) ||
+      room.sittingOut.some((p) => p.id === viewerId),
+    isSittingOut: room.sittingOut.some((p) => p.id === viewerId),
     state: viewFor(room.state, viewerId),
   };
 }
@@ -47,6 +50,9 @@ function broadcastRoom(io: Server, room: Room) {
   }
   for (const watcher of room.spectators) {
     io.to(watcher.id).emit("room:state", roomStateFor(room, watcher.id));
+  }
+  for (const sitter of room.sittingOut) {
+    io.to(sitter.id).emit("room:state", roomStateFor(room, sitter.id));
   }
 }
 

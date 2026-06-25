@@ -898,11 +898,13 @@ export default function GameTable({
         </div>
       )}
 
-      {/* Spectator banner — watchers can leave at any time. */}
+      {/* Spectator banner — watchers can leave at any time. A sitting-out
+          gamble player gets a distinct message: they auto-rejoin when they can
+          afford the pot again. */}
       {isSpectator && (
         <div className="fixed left-1/2 top-3 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full bg-black/55 px-4 py-1.5">
           <span className="text-sm font-bold uppercase tracking-wide text-amber-300">
-            Spectating
+            {room.isSittingOut ? "Sitting out — can't cover the pot" : "Spectating"}
           </span>
           <button
             onClick={() => onLeave?.()}
