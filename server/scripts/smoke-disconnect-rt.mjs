@@ -6,6 +6,8 @@
 //      (no stall), and they're pruned at hand-end.
 //   B. A player who drops mid-hand but reconnects before it ends keeps their
 //      seat (connected restored, not pruned).
+//   C. A table that falls below the minimum re-opens for a refill join, then
+//      the host can deal again (no soft-lock).
 //
 // Requires a build first (`npm run build`) and SUPABASE_* keys in server/.env.
 // Run from server/:  node scripts/smoke-disconnect-rt.mjs
@@ -101,7 +103,7 @@ async function setupGame(tag) {
   await ask(sO, "room:setAnte", { amount: 3 });
   await ask(sO, "room:ready", { ready: true });
   await ask(sV, "room:ready", { ready: true });
-  return { O, V, sO, sV };
+  return { O, V, sO, sV, roomId: mk.roomId };
 }
 
 const created = [];
@@ -161,6 +163,40 @@ try {
     check("hand reached end", reachedEnd);
     const ids = (latestO?.state?.players || []).map((p) => p.id);
     check("reconnected player STILL seated at end", ids.includes(g.V.id), JSON.stringify(ids));
+  }
+
+  // ---- Scenario C: below-minimum table re-opens for a refill join ----
+  console.log("\nScenario C — drop below the minimum, refill, deal again:");
+  {
+    const g = await setupGame("C");
+    created.push(g.O.id, g.V.id);
+    sockets.push(g.sO, g.sV);
+    let latestO = null, reachedEnd = false, dropped = false;
+    g.sO.on("room:state", (v) => {
+      latestO = v;
+      if (ACTIVE.has(v?.state?.roundState) && !dropped) { dropped = true; setTimeout(() => g.sV.disconnect(), 50); }
+      if (v?.state?.roundState === "end") reachedEnd = true;
+    });
+    await ask(g.sO, "room:start");
+    for (let i = 0; i < 160 && !reachedEnd; i++) await sleep(250);
+    await sleep(500);
+    check("dropped to 2 players", (latestO?.state?.players || []).length === 2);
+
+    const W = await makeUser("CW");
+    created.push(W.id);
+    const sW = await connect(W.token);
+    sockets.push(sW);
+    const list = await ask(sW, "lobby:list");
+    const r = list.find((x) => x.id === g.roomId);
+    check("table flagged needsPlayers in the lobby", !!r && r.needsPlayers === true);
+    const jn = await ask(sW, "room:join", { roomId: g.roomId });
+    check("W refilled the below-minimum started game", jn.ok, JSON.stringify(jn));
+    await sleep(300);
+    check("back to 3 players", (latestO?.state?.players || []).length === 3);
+    const nh = await ask(g.sO, "room:nextHand");
+    check("host can deal the next hand again", nh.ok, JSON.stringify(nh));
+    await sleep(400);
+    check("new hand is live (not stuck at end)", latestO?.state?.roundState !== "end", latestO?.state?.roundState);
   }
 
   console.log(`\n✅ All ${passed} checks passed.`);
