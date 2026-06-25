@@ -257,6 +257,10 @@ function Seat({
       </span>
       <div
         className={`flex transition-opacity ${dimmed ? "opacity-40" : ""}`}
+        // Reserve the card area's height even when the hand is empty (after a
+        // pass or the last card is played), so the centered seat doesn't shrink
+        // and shift the name/money HUD upward.
+        style={{ minHeight: `calc(var(--cu, 40px) * ${isUser ? 2 : 1.4})` }}
       >
         {hand.map((c, i) => {
           // Discard-selection visuals only apply while selecting.
