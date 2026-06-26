@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import SwickCards from "./SwickCards";
 import { useMenuScale } from "./ScaledMenu";
 import { playSfx } from "../lib/sfx";
@@ -20,7 +21,22 @@ const PLAY_DELAY = 0.4;
  */
 export default function Intro({ onPlay }: IntroProps) {
   // Scale the title + button up on larger screens, matching the menus.
-  const scale = useMenuScale();
+  const menuScale = useMenuScale();
+  const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
+
+  // Detect landscape orientation and adjust scale accordingly.
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsLandscape(window.innerWidth > window.innerHeight);
+    };
+    checkOrientation();
+    window.addEventListener("resize", checkOrientation);
+    return () => window.removeEventListener("resize", checkOrientation);
+  }, []);
+
+  // In landscape, use half the menu scale to prevent elements from dominating.
+  const scale = isLandscape ? menuScale / 2 : menuScale;
+
   return (
     <div className="relative min-h-[100dvh] w-full overflow-hidden">
       {/* SWICK cards — anchored near the top quarter */}
