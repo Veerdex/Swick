@@ -1083,14 +1083,17 @@ export default function GameTable({
         />
       )}
 
-      {/* Status / info text, just above the deck (above the cards) */}
+      {/* Status / info text, just above the deck (above the cards).
+          Add a reserved zone with padding to prevent overlap on narrow screens. */}
       {displayText && (
-        <p
-          className="absolute left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-center text-2xl font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] sm:text-3xl"
-          style={{ top: `calc(${CENTER.y}% - var(--cu) - 40px)` }}
+        <div
+          className="pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 -translate-y-1/2"
+          style={{ top: `calc(${CENTER.y}% - var(--cu) - 40px)`, padding: "8px 20px" }}
         >
-          {displayText}
-        </p>
+          <p className="whitespace-nowrap text-center text-2xl font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] sm:text-3xl">
+            {displayText}
+          </p>
+        </div>
       )}
 
       {/* The deck (hidden once trick-taking starts — the trick takes the center) */}
