@@ -51,7 +51,9 @@ function removeFromHand(player: PlayerState, indices: number[]): Card[] {
 /**
  * Once everyone has discarded, check for a special hand (3 Aces / 3 Sevens /
  * A-K-Q of trump). If one exists the holder wins the pot instantly and no
- * tricks are played; otherwise trick-taking begins.
+ * tricks are played. Also check if only one player knocked in: if so, award
+ * them all 3 tricks and end the hand (no trick-taking needed since the outcome
+ * is already determined). Otherwise trick-taking begins.
  */
 export function beginTurns(state: GameState): void {
   const special = findSpecialHandWinner(state);
@@ -60,12 +62,21 @@ export function beginTurns(state: GameState): void {
     return;
   }
 
+  // Only one player knocked in: they automatically win all 3 tricks.
+  const knockedIn = discardOrder(state);
+  if (knockedIn.length === 1) {
+    knockedIn[0].tricksWon = 3;
+    state.roundState = "end";
+    state.currentDiscardPlayerId = null;
+    return;
+  }
+
   state.roundState = "turns";
   state.trickNumber = 0;
   state.currentTrick = [];
   state.leadSuit = null;
   state.currentDiscardPlayerId = null;
-  const first = discardOrder(state)[0];
+  const first = knockedIn[0];
   state.currentTurnPlayerId = first ? first.id : null;
 }
 
