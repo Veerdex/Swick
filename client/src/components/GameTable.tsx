@@ -429,10 +429,35 @@ export default function GameTable({
     ...players.slice(0, userIdx),
   ];
   const slots = OTHER_SLOTS[n] ?? OTHER_SLOTS[6];
-  const posOf = (id: string): Pos =>
-    id === anchorId
-      ? USER_POS
-      : slots[others.findIndex((p) => p.id === id)] ?? { x: 50, y: 50 };
+
+  // Shift single seats down to avoid overlapping with info text above the deck.
+  // When a side (left/center/right) has only one seat, move it down.
+  const adjustSeatPos = (pos: Pos, seatIdx: number): Pos => {
+    // For 3 players: [right, top] — shift the top seat down
+    if (n === 3 && seatIdx === 1) {
+      return { ...pos, y: Math.min(pos.y + 8, 35) };
+    }
+    // For 4 players: [right, top, left] — shift the top seat down
+    if (n === 4 && seatIdx === 1) {
+      return { ...pos, y: Math.min(pos.y + 8, 35) };
+    }
+    // For 5 players: [2 right, top, left] — shift the top seat down
+    if (n === 5 && seatIdx === 2) {
+      return { ...pos, y: Math.min(pos.y + 8, 35) };
+    }
+    // For 6 players: [2 right, top, 2 left] — shift the top seat down
+    if (n === 6 && seatIdx === 2) {
+      return { ...pos, y: Math.min(pos.y + 8, 35) };
+    }
+    return pos;
+  };
+
+  const posOf = (id: string): Pos => {
+    if (id === anchorId) return USER_POS;
+    const seatIdx = others.findIndex((p) => p.id === id);
+    const basePos = slots[seatIdx] ?? { x: 50, y: 50 };
+    return adjustSeatPos(basePos, seatIdx);
+  };
 
   // Each player's tracking colour, assigned by seat order.
   const colorOf = (id: string) =>
@@ -1083,21 +1108,14 @@ export default function GameTable({
         />
       )}
 
-      {/* Status / info text, just above the deck (above the cards).
-          Add a reserved zone with padding and background to prevent overlap. */}
+      {/* Status / info text, just above the deck (above the cards) */}
       {displayText && (
-        <div
-          className="pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 rounded-lg"
-          style={{
-            top: `calc(${CENTER.y}% - var(--cu) - 40px)`,
-            padding: "calc(var(--cu) * 0.4) calc(var(--cu) * 1.2)",
-            backgroundColor: "rgba(0, 0, 0, 0.25)",
-          }}
+        <p
+          className="pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-center text-2xl font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] sm:text-3xl"
+          style={{ top: `calc(${CENTER.y}% - var(--cu) - 40px)` }}
         >
-          <p className="whitespace-nowrap text-center text-2xl font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] sm:text-3xl">
-            {displayText}
-          </p>
-        </div>
+          {displayText}
+        </p>
       )}
 
       {/* The deck (hidden once trick-taking starts — the trick takes the center) */}
