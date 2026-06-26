@@ -1234,15 +1234,16 @@ export default function GameTable({
           hand deals: their money above them, and a gold star below their cards
           for every trick they've won. */}
       {phase === "live" &&
-        (state.roundState === "turns" ||
-          state.roundState === "trick-complete" ||
-          state.roundState === "end") &&
         players.map((p) => {
           const pos = posOf(p.id);
           const isUserSeat = p.id === youId;
+          const inTrickPhase =
+            state.roundState === "turns" ||
+            state.roundState === "trick-complete" ||
+            state.roundState === "end";
           return (
             <Fragment key={`hud-${p.id}`}>
-              {/* Money — above the player (sits above the "DEALER" label). */}
+              {/* Money — above the player, visible in all phases. */}
               <div
                 className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2"
                 style={{
@@ -1260,7 +1261,7 @@ export default function GameTable({
 
               {/* Gold stars — one per trick won, below the cards. Hidden on the
                   end screen, where the payout float owns that spot. */}
-              {p.tricksWon > 0 && state.roundState !== "end" && (
+              {inTrickPhase && p.tricksWon > 0 && state.roundState !== "end" && (
                 <div
                   className="pointer-events-none absolute z-20 flex -translate-x-1/2 -translate-y-1/2 gap-px"
                   style={{

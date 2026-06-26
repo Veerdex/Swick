@@ -183,22 +183,21 @@ function gambleRoom(balances: Record<string, number>, ante = 3) {
   return { mgr, room };
 }
 
-test("gamble: players who can't cover the pot sit out the hand", () => {
-  // 4 players, ante 3 -> pot = 4*3 + 3 dealer extra = 15. Need money > 15.
-  const { mgr, room } = gambleRoom({ host: 1000, r1: 1000, r2: 1000, broke: 5 });
+test("gamble: players with zero or negative balance sit out the hand", () => {
+  // Any positive balance can sit; zero/negative balance sits out.
+  const { mgr, room } = gambleRoom({ host: 1000, r1: 1000, r2: 1000, broke: 0 });
   assert.ok(mgr.startGame("host").ok);
 
   const seated = room.state.players.map((p) => p.id).sort();
   assert.deepEqual(seated, ["host", "r1", "r2"]);
   assert.equal(room.sittingOut.length, 1);
   assert.equal(room.sittingOut[0].id, "broke");
-  // The sitting-out player keeps their balance for a later rejoin.
-  assert.equal(room.sittingOut[0].money, 5);
+  assert.equal(room.sittingOut[0].money, 0);
 });
 
-test("gamble: start fails when too few players can cover the pot", () => {
-  // Only 2 of 3 can afford -> below MIN_PLAYERS.
-  const { mgr } = gambleRoom({ host: 1000, r1: 1000, broke: 2 });
+test("gamble: start fails when too few players have positive balance", () => {
+  // Only 2 of 3 have positive balance -> below MIN_PLAYERS.
+  const { mgr } = gambleRoom({ host: 1000, r1: 1000, broke: 0 });
   const res = mgr.startGame("host");
   assert.equal(res.ok, false);
 });

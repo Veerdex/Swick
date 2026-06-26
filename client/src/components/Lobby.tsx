@@ -38,6 +38,7 @@ export default function Lobby({ onEntered }: LobbyProps) {
   const [createMode, setCreateMode] = useState<GameMode>("casual");
   const [friendsOnly, setFriendsOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [joinWarning, setJoinWarning] = useState<{ roomId: string; pot: number } | null>(null);
   // A Google sign-in/link error returned via the URL after a redirect.
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [alreadyLinked, setAlreadyLinked] = useState(false);
@@ -151,9 +152,16 @@ export default function Lobby({ onEntered }: LobbyProps) {
     socket.emit("room:create", { mode: createMode, friendsOnly }, enterAck);
   };
 
-  const joinRoom = (roomId: string) => {
+  const joinRoom = (roomId: string, force = false) => {
     setError(null);
     playSfx("ui-click");
+    if (!force) {
+      const room = rooms.find((r) => r.id === roomId);
+      if (room?.mode === "gamble" && currency > 0 && currency < room.pot) {
+        setJoinWarning({ roomId, pot: room.pot });
+        return;
+      }
+    }
     socket.emit("room:join", { roomId }, enterAck);
   };
 
@@ -352,7 +360,7 @@ export default function Lobby({ onEntered }: LobbyProps) {
             {rooms.map((room) => {
               const gamble = room.mode === "gamble";
               const gambleBlocked =
-                gamble && (auth.isGuest || currency <= room.pot);
+                gamble && (auth.isGuest || currency <= 0);
               const full = room.playerCount >= room.maxPlayers;
               // You can join: an open seat pre-game, a below-min refill, or a
               // full table that has a bot to replace.
@@ -363,7 +371,7 @@ export default function Lobby({ onEntered }: LobbyProps) {
               const joinTitle = gambleBlocked
                 ? auth.isGuest
                   ? "Gamble mode requires an account"
-                  : `Need more than ${room.pot}¢ to join`
+                  : "You need a positive balance to join gamble mode"
                 : full && room.hasBots
                   ? "Replace a bot (you'll play the next round)"
                   : room.needsPlayers
@@ -434,6 +442,38 @@ export default function Lobby({ onEntered }: LobbyProps) {
       )}
         </section>
       </div>
+
+      {/* Warning dialog: joining a gamble table when balance < pot */}
+      {joinWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className={`${PANEL} w-full max-w-sm space-y-4 text-center`}>
+            <h3 className="text-base font-bold text-amber-100">Low Balance Warning</h3>
+            <p className="text-sm text-amber-100/80">
+              Your balance ({currency}¢) is less than the current pot ({joinWarning.pot}¢).
+              If you go set, you'll go negative and won't be able to play further hands
+              until your balance recovers.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setJoinWarning(null)}
+                className="flex-1 rounded-lg border border-amber-400/40 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-red-900/60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const id = joinWarning.roomId;
+                  setJoinWarning(null);
+                  joinRoom(id, true);
+                }}
+                className={`${GOLD_BTN} flex-1`}
+              >
+                Join anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom tab bar — doubles as the active-page indicator. Tap to jump, or
           swipe the pages above. The gold pill follows the continuous scroll

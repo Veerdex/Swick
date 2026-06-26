@@ -328,7 +328,9 @@ export class RoomManager {
 
     const seated: PlayerState[] = [];
     const out: PlayerState[] = [];
-    for (const p of all) (p.money > pot ? seated : out).push(p);
+    // Any player with a positive balance can sit; the set penalty may push them
+    // negative, at which point they're removed before the next hand.
+    for (const p of all) (p.money > 0 ? seated : out).push(p);
     room.state.players = seated;
     room.sittingOut = out;
     return seated.length;
