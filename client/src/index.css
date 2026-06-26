@@ -23,7 +23,8 @@ html {
 }
 html,
 body {
-  /* No rubber-band/bounce past the top or bottom. */
+  /* No rubber-band/bounce past the top or bottom. Disable all scrolling. */
+  overflow: hidden;
   overscroll-behavior: none;
 }
 

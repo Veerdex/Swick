@@ -996,7 +996,7 @@ export default function GameTable({
             src="/pot-of-gold.png?v=2"
             alt="Pot"
             className="drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]"
-            style={{ width: "clamp(136px, 18vw, 264px)" }}
+            style={{ width: "clamp(136px, 18vw, 264px)", transform: "scale(0.7)" }}
           />
           <span
             className="-mt-2 font-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.85)]"
