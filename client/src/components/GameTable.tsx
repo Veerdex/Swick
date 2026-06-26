@@ -40,8 +40,8 @@ const deckFly = (pos: Pos): CSSProperties =>
 // For 3 and 4 player games, side seats are slightly shifted down to avoid overlapping
 // with the info text above the deck.
 const OTHER_SLOTS: Record<number, Pos[]> = {
-  3: [{ x: 84, y: 44 }, { x: 50, y: 11 }], // right (shifted down), top
-  4: [{ x: 84, y: 44 }, { x: 50, y: 11 }, { x: 16, y: 44 }], // right (shifted down), top, left (shifted down)
+  3: [{ x: 84, y: 46 }, { x: 50, y: 11 }], // right (shifted down), top
+  4: [{ x: 84, y: 46 }, { x: 50, y: 11 }, { x: 16, y: 46 }], // right (shifted down), top, left (shifted down)
   5: [
     { x: 85, y: 56 }, { x: 85, y: 30 }, { x: 50, y: 11 }, { x: 16, y: 42 },
   ], // 2 right, top, left
