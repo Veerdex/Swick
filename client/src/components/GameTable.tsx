@@ -97,12 +97,6 @@ const PLAYER_COLORS = [
 const rankValue = (r: Rank) => RANK_ORDER.indexOf(r);
 const sameCard = (a: CardSlot, b: CardSlot) =>
   !!a && !!b && a.rank === b.rank && a.suit === b.suit;
-const SUIT_SYMBOL: Record<Suit, string> = {
-  spades: "♠",
-  hearts: "♥",
-  diamonds: "♦",
-  clubs: "♣",
-};
 const rnd = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 
 function buildRevealSequence(): CardT[] {
@@ -201,8 +195,6 @@ function Seat({
   onPlay,
   color,
   showDealer = true,
-  trumpSuit,
-  dealerKeptTrump,
   trumpCard,
 }: {
   player: PlayerView;
@@ -230,11 +222,7 @@ function Seat({
   /** Hand indices that are legal plays right now (others are dimmed). */
   legalPlays?: Set<number>;
   onPlay?: (i: number) => void;
-  /** Trump suit for the user's seat (shown to the right of the hand). */
-  trumpSuit?: Suit;
-  /** Whether the dealer kept the trump card. */
-  dealerKeptTrump?: boolean;
-  /** The actual trump card (to display if kept). */
+  /** The actual trump card (shown next to the user's hand). */
   trumpCard?: CardSlot;
 }) {
   const size = isUser ? "md" : "sm";
@@ -280,7 +268,7 @@ function Seat({
         )}
       </span>
       {/* Hand and trump grouped together and centered to prevent cutoff. */}
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-6">
         {/* The hand cards. */}
         <div
           className={`flex transition-opacity ${dimmed ? "opacity-40" : ""}`}
@@ -328,8 +316,8 @@ function Seat({
           })}
         </div>
 
-        {/* Trump indicator: card when dealer kept it, symbol when passed. Only shown for user's hand. */}
-        {isUser && trumpSuit && (
+        {/* Trump card reference: always shows the trump card. Only shown for user's hand. */}
+        {isUser && trumpCard && (
           <div className="pointer-events-none flex flex-col items-center justify-center gap-1 leading-none">
             <span
               className="font-bold uppercase tracking-[0.3em] text-white/90 drop-shadow"
@@ -337,20 +325,7 @@ function Seat({
             >
               Trump
             </span>
-            {dealerKeptTrump && trumpCard ? (
-              <Card card={trumpCard} size="sm" />
-            ) : (
-              <span
-                className={`leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] ${
-                  trumpSuit === "hearts" || trumpSuit === "diamonds"
-                    ? "text-red-500"
-                    : "text-slate-900"
-                }`}
-                style={{ fontSize: "calc(var(--cu, 40px) * 1.7)" }}
-              >
-                {SUIT_SYMBOL[trumpSuit]}
-              </span>
-            )}
+            <Card card={trumpCard} size="sm" />
           </div>
         )}
       </div>
@@ -1235,13 +1210,11 @@ export default function GameTable({
               onPlay={playCard}
               color={colorOf(p.id)}
               showDealer={dealtPhase}
-              trumpSuit={
-                (phase === "trump" || phase === "live") && state.trumpSuit
-                  ? state.trumpSuit
+              trumpCard={
+                (phase === "trump" || phase === "live") && state.dealerKeptTrump
+                  ? state.trumpCard
                   : undefined
               }
-              dealerKeptTrump={state.dealerKeptTrump}
-              trumpCard={state.dealerKeptTrump ? state.trumpCard : undefined}
             />
           );
         })}
