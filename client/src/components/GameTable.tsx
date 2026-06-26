@@ -1042,12 +1042,15 @@ export default function GameTable({
       )}
 
       {/* Current pot — repositioned on landscape/narrow screens.
-          On portrait: top-left. On landscape/narrow (height < 110% width): bottom-left.
+          On portrait (top-left): pot image above, value below.
+          On landscape/narrow (bottom-left): pot image below, value above.
           Above the turn-glow (z-40) so the edge glow doesn't haze its corner. */}
       {state.potValue > 0 && (
         <div
-          className={`pointer-events-none absolute z-50 flex flex-col items-center ${
-            isLandscapeNarrow ? "left-0 bottom-0" : "left-0 top-0"
+          className={`pointer-events-none absolute z-50 flex items-center ${
+            isLandscapeNarrow
+              ? "left-0 bottom-0 flex-col-reverse"
+              : "left-0 top-0 flex-col"
           }`}
         >
           <img
@@ -1057,7 +1060,9 @@ export default function GameTable({
             style={{ width: "clamp(136px, 18vw, 264px)", transform: "scale(0.7)" }}
           />
           <span
-            className="-mt-2 font-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.85)]"
+            className={`font-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.85)] ${
+              isLandscapeNarrow ? "mb-2" : "-mt-2"
+            }`}
             style={{ color: "#FFD700", fontSize: "clamp(36px, 5.2vw, 72px)" }}
           >
             {money(state.potValue)}
