@@ -37,9 +37,11 @@ const deckFly = (pos: Pos): CSSProperties =>
 
 // Positions for the OTHER players, ordered clockwise from the user so the deal
 // travels around the table. Keyed by total player count.
+// For 3 and 4 player games, side seats are shifted down to avoid overlapping with
+// the info text above the deck (which sits at roughly 35-40% of the screen).
 const OTHER_SLOTS: Record<number, Pos[]> = {
-  3: [{ x: 84, y: 42 }, { x: 50, y: 11 }], // right, top
-  4: [{ x: 84, y: 42 }, { x: 50, y: 11 }, { x: 16, y: 42 }], // right, top, left
+  3: [{ x: 84, y: 52 }, { x: 50, y: 11 }], // right (shifted down), top
+  4: [{ x: 84, y: 52 }, { x: 50, y: 11 }, { x: 16, y: 52 }], // right (shifted down), top, left (shifted down)
   5: [
     { x: 85, y: 56 }, { x: 85, y: 30 }, { x: 50, y: 11 }, { x: 16, y: 42 },
   ], // 2 right, top, left
@@ -429,35 +431,10 @@ export default function GameTable({
     ...players.slice(0, userIdx),
   ];
   const slots = OTHER_SLOTS[n] ?? OTHER_SLOTS[6];
-
-  // Shift single seats down to avoid overlapping with info text above the deck.
-  // When a side (left/center/right) has only one seat, move it down.
-  const adjustSeatPos = (pos: Pos, seatIdx: number): Pos => {
-    // For 3 players: [right, top] — shift the top seat down
-    if (n === 3 && seatIdx === 1) {
-      return { ...pos, y: Math.min(pos.y + 8, 35) };
-    }
-    // For 4 players: [right, top, left] — shift the top seat down
-    if (n === 4 && seatIdx === 1) {
-      return { ...pos, y: Math.min(pos.y + 8, 35) };
-    }
-    // For 5 players: [2 right, top, left] — shift the top seat down
-    if (n === 5 && seatIdx === 2) {
-      return { ...pos, y: Math.min(pos.y + 8, 35) };
-    }
-    // For 6 players: [2 right, top, 2 left] — shift the top seat down
-    if (n === 6 && seatIdx === 2) {
-      return { ...pos, y: Math.min(pos.y + 8, 35) };
-    }
-    return pos;
-  };
-
-  const posOf = (id: string): Pos => {
-    if (id === anchorId) return USER_POS;
-    const seatIdx = others.findIndex((p) => p.id === id);
-    const basePos = slots[seatIdx] ?? { x: 50, y: 50 };
-    return adjustSeatPos(basePos, seatIdx);
-  };
+  const posOf = (id: string): Pos =>
+    id === anchorId
+      ? USER_POS
+      : slots[others.findIndex((p) => p.id === id)] ?? { x: 50, y: 50 };
 
   // Each player's tracking colour, assigned by seat order.
   const colorOf = (id: string) =>
