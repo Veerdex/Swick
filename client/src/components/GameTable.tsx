@@ -988,11 +988,12 @@ export default function GameTable({
         <div className="turn-glow pointer-events-none fixed inset-0 z-40" />
       )}
 
-      {/* Current pot — pot of gold tucked into the top-left, value below it. */}
+      {/* Current pot — pot of gold tucked into the top-left, value below it.
+          Above the turn-glow (z-40) so the edge glow doesn't haze its corner. */}
       {state.potValue > 0 && (
-        <div className="pointer-events-none absolute left-0 top-0 z-30 flex flex-col items-center">
+        <div className="pointer-events-none absolute left-0 top-0 z-50 flex flex-col items-center">
           <img
-            src="/pot-of-gold.png"
+            src="/pot-of-gold.png?v=2"
             alt="Pot"
             className="drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]"
             style={{ width: "clamp(136px, 18vw, 264px)" }}
