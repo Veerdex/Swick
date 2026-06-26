@@ -328,8 +328,8 @@ function Seat({
           })}
         </div>
 
-        {/* Trump indicator: actual card if dealer kept it, otherwise just symbol. */}
-        {isUser && trumpSuit && (
+        {/* Trump indicator: card when dealer kept it, symbol when passed. */}
+        {trumpSuit && (
           <div className="pointer-events-none flex flex-col items-center justify-center gap-1 leading-none">
             <span
               className="font-bold uppercase tracking-[0.3em] text-white/90 drop-shadow"
@@ -1236,12 +1236,12 @@ export default function GameTable({
               color={colorOf(p.id)}
               showDealer={dealtPhase}
               trumpSuit={
-                isUserSeat && (phase === "trump" || phase === "live") && state.trumpSuit
+                (phase === "trump" || phase === "live") && state.trumpSuit
                   ? state.trumpSuit
                   : undefined
               }
-              dealerKeptTrump={isUserSeat ? state.dealerKeptTrump : undefined}
-              trumpCard={isUserSeat && state.dealerKeptTrump ? state.trumpCard : undefined}
+              dealerKeptTrump={state.dealerKeptTrump}
+              trumpCard={state.dealerKeptTrump ? state.trumpCard : undefined}
             />
           );
         })}
