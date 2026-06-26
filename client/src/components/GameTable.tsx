@@ -202,6 +202,8 @@ function Seat({
   color,
   showDealer = true,
   trumpSuit,
+  dealerKeptTrump,
+  trumpCard,
 }: {
   player: PlayerView;
   pos: Pos;
@@ -230,6 +232,10 @@ function Seat({
   onPlay?: (i: number) => void;
   /** Trump suit for the user's seat (shown to the right of the hand). */
   trumpSuit?: Suit;
+  /** Whether the dealer kept the trump card. */
+  dealerKeptTrump?: boolean;
+  /** The actual trump card (to display if kept). */
+  trumpCard?: CardSlot;
 }) {
   const size = isUser ? "md" : "sm";
   // Your hand is spread out (at most 4 cards); opponents' cards overlap. Spacing
@@ -322,25 +328,29 @@ function Seat({
           })}
         </div>
 
-        {/* Trump suit indicator, shown to the right of the hand when revealed. */}
+        {/* Trump indicator: actual card if dealer kept it, otherwise just symbol. */}
         {isUser && trumpSuit && (
-          <div className="pointer-events-none flex flex-col items-center justify-center leading-none">
+          <div className="pointer-events-none flex flex-col items-center justify-center gap-1 leading-none">
             <span
               className="font-bold uppercase tracking-[0.3em] text-white/90 drop-shadow"
               style={{ fontSize: "calc(var(--cu, 40px) * 0.3)" }}
             >
               Trump
             </span>
-            <span
-              className={`leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] ${
-                trumpSuit === "hearts" || trumpSuit === "diamonds"
-                  ? "text-red-500"
-                  : "text-slate-900"
-              }`}
-              style={{ fontSize: "calc(var(--cu, 40px) * 1.7)" }}
-            >
-              {SUIT_SYMBOL[trumpSuit]}
-            </span>
+            {dealerKeptTrump && trumpCard ? (
+              <Card card={trumpCard} size="sm" />
+            ) : (
+              <span
+                className={`leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] ${
+                  trumpSuit === "hearts" || trumpSuit === "diamonds"
+                    ? "text-red-500"
+                    : "text-slate-900"
+                }`}
+                style={{ fontSize: "calc(var(--cu, 40px) * 1.7)" }}
+              >
+                {SUIT_SYMBOL[trumpSuit]}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -1226,6 +1236,8 @@ export default function GameTable({
                   ? state.trumpSuit
                   : undefined
               }
+              dealerKeptTrump={isUserSeat ? state.dealerKeptTrump : undefined}
+              trumpCard={isUserSeat && state.dealerKeptTrump ? state.trumpCard : undefined}
             />
           );
         })}
