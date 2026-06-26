@@ -68,8 +68,28 @@ export function botPlayDecision(state: GameState, playerId: string): number {
   const lowest = (idxs: number[]) =>
     idxs.reduce((b, i) => (rankValue(hand[i].rank) < rankValue(hand[b].rank) ? i : b), idxs[0]);
 
-  // Leading: lead the highest non-trump if possible (save trump), else highest.
+  // Leading: enforce ace-of-trump lead rule on the first trick of each hand.
+  // If this is the first trick and the player immediately left of the dealer is
+  // leading and holds the Ace of Trump, they must play it.
   if (state.currentTrick.length === 0) {
+    if (state.trickNumber === 0) {
+      // Find the player immediately left of the dealer (first leader).
+      const dealerIdx = state.players.findIndex((p) => p.id === state.dealerId);
+      const firstLeaderIdx = (dealerIdx + 1) % state.players.length;
+      const firstLeader = state.players[firstLeaderIdx];
+
+      // If this is the first leader and they hold the Ace of Trump, force it.
+      if (playerId === firstLeader.id) {
+        const aceOfTrumpIdx = hand.findIndex(
+          (c) => c.rank === "A" && c.suit === trump,
+        );
+        if (aceOfTrumpIdx !== -1 && legal.includes(aceOfTrumpIdx)) {
+          return aceOfTrumpIdx;
+        }
+      }
+    }
+
+    // Standard lead: play the highest non-trump if possible (save trump), else highest.
     const nonTrump = legal.filter((i) => hand[i].suit !== trump);
     return highest(nonTrump.length ? nonTrump : legal);
   }
