@@ -978,6 +978,14 @@ export default function GameTable({
     return () => clearTimeout(land);
   }, [decisionRevealed, state.dealerKeptTrump]);
 
+  // Clear swap animation when entering trick-taking to avoid flickering extra
+  // cards (the swap animation from discard-draw should not carry into turns).
+  useEffect(() => {
+    if (inTricks) {
+      setSwapFx(null);
+    }
+  }, [inTricks]);
+
   const statusText =
     phase === "waiting"
       ? "Waiting for all players..."
