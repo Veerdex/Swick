@@ -39,10 +39,21 @@ export default function Lobby({ onEntered }: LobbyProps) {
   const [friendsOnly, setFriendsOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [joinWarning, setJoinWarning] = useState<{ roomId: string; pot: number } | null>(null);
+  const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
   // A Google sign-in/link error returned via the URL after a redirect.
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [alreadyLinked, setAlreadyLinked] = useState(false);
   const auth = useAuth();
+
+  // Detect landscape orientation and adjust menu scale accordingly.
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsLandscape(window.innerWidth > window.innerHeight);
+    };
+    checkOrientation();
+    window.addEventListener("resize", checkOrientation);
+    return () => window.removeEventListener("resize", checkOrientation);
+  }, []);
 
   useEffect(() => {
     const e = consumeOAuthError();
@@ -172,11 +183,13 @@ export default function Lobby({ onEntered }: LobbyProps) {
   };
 
   return (
-    <ScaledMenu className="pt-12">
-      {/* Floating SWICK title */}
-      <div className="flex shrink-0 flex-col items-center pt-2">
-        <SwickCards variant="float" />
-      </div>
+    <ScaledMenu className="pt-12" scaleMultiplier={isLandscape ? 0.7 : 1}>
+        {/* Floating SWICK title */}
+        <div className="flex shrink-0 flex-col items-center pt-2">
+          <div style={{ transform: "scale(0.85)", transformOrigin: "top center" }}>
+            <SwickCards variant="float" />
+          </div>
+        </div>
 
       {/* A Google sign-in/link error returned via the redirect — e.g. the
           account is already registered, so they should sign in, not link. */}

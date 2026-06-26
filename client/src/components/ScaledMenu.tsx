@@ -28,13 +28,18 @@ export function useMenuScale() {
  * Centers a menu and scales it up to fill larger screens. The scaled height is
  * divided back out so it still fits the available area (content taller than
  * that scrolls inside). `className` styles the inner (scaled) flex column.
+ *
+ * `scaleMultiplier` (default 1) is applied on top of the computed fit scale —
+ * pass a value < 1 (e.g. 0.7) to shrink the menu in landscape orientation.
  */
 export default function ScaledMenu({
   children,
   className = "",
+  scaleMultiplier = 1,
 }: {
   children: ReactNode;
   className?: string;
+  scaleMultiplier?: number;
 }) {
   const [fit, setFit] = useState(computeFit);
   useEffect(() => {
@@ -42,6 +47,8 @@ export default function ScaledMenu({
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  const scale = fit.scale * scaleMultiplier;
 
   return (
     <div
@@ -51,9 +58,9 @@ export default function ScaledMenu({
       <div
         className={`no-scrollbar flex flex-col overflow-y-auto ${className}`}
         style={{
-          width: fit.width,
-          height: `calc((100dvh - 3rem) / ${fit.scale})`,
-          transform: `scale(${fit.scale})`,
+          width: fit.width * scaleMultiplier,
+          height: `calc((100dvh - 3rem) / ${scale})`,
+          transform: `scale(${scale})`,
           transformOrigin: "top center",
         }}
       >
