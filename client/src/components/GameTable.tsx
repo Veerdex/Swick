@@ -1071,9 +1071,13 @@ export default function GameTable({
           />
           <span
             className={`font-black drop-shadow-[0_2px_3px_rgba(0,0,0,0.85)] ${
-              isLandscapeNarrow ? "mb-2" : "-mt-2"
+              isLandscapeNarrow ? "mb-2" : ""
             }`}
-            style={{ color: "#FFD700", fontSize: "clamp(36px, 5.2vw, 72px)" }}
+            style={{
+              color: "#FFD700",
+              fontSize: "clamp(36px, 5.2vw, 72px)",
+              marginTop: isLandscapeNarrow ? undefined : "calc(36px * -0.25)",
+            }}
           >
             {money(state.potValue)}
           </span>
