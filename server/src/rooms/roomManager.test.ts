@@ -274,3 +274,43 @@ test("setDecisionTime: host only, validated multiplier, defaults to 1", () => {
   assert.ok(mgr.setDecisionTime("host", 0).ok, "0 = Infinite is valid");
   assert.equal(room.state.decisionMult, 0);
 });
+
+test("a full pre-game table with bots: a joiner replaces a bot immediately", () => {
+  const { mgr, room } = withRoom();
+  while (room.state.players.length < MAX_PLAYERS) assert.ok(mgr.addBot("host").ok);
+  const bots = room.state.players.filter((p) => p.isBot).length;
+
+  assert.ok(mgr.joinRoom(room.id, createPlayer("late", "Late")).ok);
+  assert.equal(room.state.players.length, MAX_PLAYERS, "still full");
+  assert.ok(room.state.players.some((p) => p.id === "late"), "joiner seated");
+  assert.equal(room.state.players.filter((p) => p.isBot).length, bots - 1, "one bot replaced");
+});
+
+test("a full started table with bots: a joiner queues, then takes a seat next hand", () => {
+  const { mgr, room } = withRoom();
+  mgr.setAnte("host", 3);
+  mgr.setReady("host", true);
+  while (room.state.players.length < MAX_PLAYERS) mgr.addBot("host");
+  assert.ok(mgr.startGame("host").ok); // full, mid-hand
+
+  assert.ok(mgr.joinRoom(room.id, createPlayer("late", "Late")).ok);
+  assert.equal(room.state.players.length, MAX_PLAYERS, "not seated mid-hand");
+  assert.ok(!room.state.players.some((p) => p.id === "late"));
+  assert.ok(room.seatQueue.includes("late"), "queued for a seat");
+  assert.ok(room.spectators.some((s) => s.id === "late"), "watching meanwhile");
+
+  room.state.roundState = "end";
+  assert.ok(mgr.nextHand("host").ok);
+  assert.ok(room.state.players.some((p) => p.id === "late"), "seated next hand");
+  assert.ok(!room.seatQueue.includes("late"));
+  assert.ok(!room.spectators.some((s) => s.id === "late"));
+});
+
+test("a full table with no bots rejects a joiner", () => {
+  const { mgr, room } = withRoom();
+  for (let i = 0; i < MAX_PLAYERS - 1; i++) {
+    assert.ok(mgr.joinRoom(room.id, createPlayer(`h${i}`, `H${i}`)).ok);
+  }
+  assert.equal(room.state.players.length, MAX_PLAYERS);
+  assert.equal(mgr.joinRoom(room.id, createPlayer("late", "Late")).ok, false);
+});

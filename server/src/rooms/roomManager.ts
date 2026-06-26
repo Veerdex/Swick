@@ -114,20 +114,57 @@ export class RoomManager {
   joinRoom(roomId: string, player: PlayerState): Result<Room> {
     const room = this.rooms.get(roomId);
     if (!room) return fail("Room not found");
-    // A started game is closed to joiners EXCEPT when it has dropped below the
-    // minimum (players left mid-game) — then it accepts players to refill the
-    // seat so the table can resume.
+    if (this.playerRoom.has(player.id)) return fail("You are already in a room");
+
+    const full = room.state.players.length >= MAX_PLAYERS;
+    const hasBot = room.state.players.some((p) => p.isBot);
+
+    // A full table is still joinable if it has bots — replace one. Before the
+    // game starts the swap is immediate; mid-game the joiner queues and takes a
+    // bot's seat at the start of the next hand.
+    if (full) {
+      if (!hasBot) return fail("Room is full");
+      if (!room.started) {
+        this.removeOneBot(room);
+        room.state.players.push(player);
+        this.playerRoom.set(player.id, roomId);
+        return ok(room);
+      }
+      room.spectators.push({ id: player.id, name: player.name });
+      room.seatQueue.push(player.id);
+      this.playerRoom.set(player.id, roomId);
+      return ok(room);
+    }
+
+    // Not full. A started game is closed to joiners EXCEPT when it dropped below
+    // the minimum (players left mid-game) — then it accepts a refill.
     if (room.started && room.state.players.length >= MIN_PLAYERS) {
       return fail("That game has already started");
     }
-    if (this.playerRoom.has(player.id)) return fail("You are already in a room");
-    if (room.state.players.length >= MAX_PLAYERS) return fail("Room is full");
-
     room.state.players.push(player);
     this.playerRoom.set(player.id, roomId);
-    // A new arrival changes who's ready relative to the seat count; the new
-    // player simply starts un-ready, which is already their default.
     return ok(room);
+  }
+
+  /** Remove one bot from the table (and the player map). */
+  private removeOneBot(room: Room): boolean {
+    const i = room.state.players.findIndex((p) => p.isBot);
+    if (i < 0) return false;
+    const [bot] = room.state.players.splice(i, 1);
+    this.playerRoom.delete(bot.id);
+    return true;
+  }
+
+  /** Seat queued humans by swapping out bots, at the start of a hand. */
+  private seatQueued(room: Room): void {
+    while (room.seatQueue.length && room.state.players.some((p) => p.isBot)) {
+      const id = room.seatQueue.shift()!;
+      const spec = room.spectators.find((s) => s.id === id);
+      if (!spec) continue; // they left while queued
+      this.removeOneBot(room);
+      room.spectators = room.spectators.filter((s) => s.id !== id);
+      room.state.players.push(createPlayer(id, spec.name));
+    }
   }
 
   /** Join a room as a watcher (any table, including in-progress ones). */
@@ -154,9 +191,11 @@ export class RoomManager {
     const room = this.rooms.get(roomId);
     if (!room) return { closed: false };
 
-    // A watcher leaving just drops out of the spectator list.
+    // A watcher leaving just drops out of the spectator list (and the seat
+    // queue, if they were waiting for a bot's seat).
     if (room.spectators.some((s) => s.id === playerId)) {
       room.spectators = room.spectators.filter((s) => s.id !== playerId);
+      room.seatQueue = room.seatQueue.filter((id) => id !== playerId);
       return { room, closed: false };
     }
     // A sitting-out player leaving drops out of that list.
@@ -402,6 +441,7 @@ export class RoomManager {
     if (room.hostId !== playerId) return fail("Only the host deals the next hand");
     if (room.state.roundState !== "end") return fail("The hand isn't over yet");
 
+    this.seatQueued(room); // swap any queued humans in for bots
     // Re-seat/drop players by who can afford the next pot (gamble only).
     if (this.reseatGamble(room) < MIN_PLAYERS) {
       return fail(`Need ${MIN_PLAYERS} players who can cover the pot`);

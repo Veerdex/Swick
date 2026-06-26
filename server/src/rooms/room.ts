@@ -37,6 +37,12 @@ export interface Room {
    * pot. Their full state (balance) is kept so they auto-rejoin when affordable.
    */
   sittingOut: PlayerState[];
+  /**
+   * Spectator ids waiting to take a bot's seat. When a human joins a table that
+   * is full but has bots mid-hand, they queue here and replace a bot at the
+   * start of the next hand.
+   */
+  seatQueue: string[];
   /** Once true, the room no longer appears in the joinable lobby list. */
   started: boolean;
   createdAt: number;
@@ -58,6 +64,8 @@ export interface RoomSummary {
   started: boolean;
   /** A started game that dropped below the minimum and is open to refill. */
   needsPlayers: boolean;
+  /** Has at least one bot — a full table is still joinable by replacing one. */
+  hasBots: boolean;
 }
 
 export function createRoom(
@@ -75,6 +83,7 @@ export function createRoom(
     friendsOnly,
     spectators: [],
     sittingOut: [],
+    seatQueue: [],
     started: false,
     createdAt: Date.now(),
     state: createGameState([host]),
@@ -93,5 +102,6 @@ export function roomSummary(room: Room): RoomSummary {
     pot: room.state.potValue,
     started: room.started,
     needsPlayers: room.started && room.state.players.length < MIN_PLAYERS,
+    hasBots: room.state.players.some((p) => p.isBot),
   };
 }

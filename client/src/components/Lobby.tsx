@@ -354,11 +354,21 @@ export default function Lobby({ onEntered }: LobbyProps) {
               const gambleBlocked =
                 gamble && (auth.isGuest || currency <= room.pot);
               const full = room.playerCount >= room.maxPlayers;
-              const joinTitle = auth.isGuest
-                ? "Gamble mode requires an account"
-                : gambleBlocked
-                  ? `Need more than ${room.pot}¢ to join`
-                  : "";
+              // You can join: an open seat pre-game, a below-min refill, or a
+              // full table that has a bot to replace.
+              const canJoin =
+                !gambleBlocked &&
+                ((full && room.hasBots) ||
+                  (!full && (!room.started || room.needsPlayers)));
+              const joinTitle = gambleBlocked
+                ? auth.isGuest
+                  ? "Gamble mode requires an account"
+                  : `Need more than ${room.pot}¢ to join`
+                : full && room.hasBots
+                  ? "Replace a bot (you'll play the next round)"
+                  : room.needsPlayers
+                    ? "Join to fill the table"
+                    : "";
               return (
                 <li
                   key={room.id}
@@ -397,16 +407,8 @@ export default function Lobby({ onEntered }: LobbyProps) {
                   <div className="flex shrink-0 gap-2">
                     <button
                       onClick={() => joinRoom(room.id)}
-                      disabled={
-                        full || (room.started && !room.needsPlayers) || gambleBlocked
-                      }
-                      title={
-                        room.needsPlayers
-                          ? "Join to fill the table"
-                          : room.started
-                            ? "Game in progress"
-                            : joinTitle
-                      }
+                      disabled={!canJoin}
+                      title={joinTitle || (room.started ? "Game in progress" : "")}
                       className={`${GOLD_BTN} px-3 py-1.5`}
                     >
                       Join

@@ -988,9 +988,9 @@ export default function GameTable({
         <div className="turn-glow pointer-events-none fixed inset-0 z-40" />
       )}
 
-      {/* Current pot — pot of gold in the top-left, value below it in gold. */}
+      {/* Current pot — pot of gold tucked into the top-left, value below it. */}
       {state.potValue > 0 && (
-        <div className="pointer-events-none absolute left-3 top-3 z-30 flex flex-col items-center">
+        <div className="pointer-events-none absolute left-0 top-0 z-30 flex flex-col items-center">
           <img
             src="/pot-of-gold.png"
             alt="Pot"
@@ -1012,7 +1012,11 @@ export default function GameTable({
       {isSpectator && (
         <div className="fixed left-1/2 top-3 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full bg-black/55 px-4 py-1.5">
           <span className="text-sm font-bold uppercase tracking-wide text-amber-300">
-            {room.isSittingOut ? "Sitting out — can't cover the pot" : "Spectating"}
+            {room.isQueued
+              ? "Joining next round…"
+              : room.isSittingOut
+                ? "Sitting out — can't cover the pot"
+                : "Spectating"}
           </span>
           <button
             onClick={() => onLeave?.()}
@@ -1049,7 +1053,9 @@ export default function GameTable({
         <div
           className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center leading-none"
           style={{
-            left: `calc(${USER_POS.x}% + var(--cu) * 4.6)`,
+            // Sit to the right of your hand, but never let the symbol run off
+            // the right edge on narrow screens (clamp its centre inwards).
+            left: `min(calc(${USER_POS.x}% + var(--cu) * 4.6), calc(100% - var(--cu) * 1.8))`,
             top: `calc(${USER_POS.y}% + var(--cu) * 0.4)`,
           }}
         >

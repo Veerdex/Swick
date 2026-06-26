@@ -44,6 +44,8 @@ function roomStateFor(room: Room, viewerId: string) {
       room.spectators.some((s) => s.id === viewerId) ||
       room.sittingOut.some((p) => p.id === viewerId),
     isSittingOut: room.sittingOut.some((p) => p.id === viewerId),
+    // Waiting to take a bot's seat at the start of the next hand.
+    isQueued: room.seatQueue.includes(viewerId),
     state: viewFor(room.state, viewerId),
   };
 }

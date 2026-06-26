@@ -16,6 +16,8 @@ export interface RoomSummary {
   started: boolean;
   /** A started game that dropped below the minimum and is open to refill. */
   needsPlayers: boolean;
+  /** Has a bot — a full table is still joinable by replacing one. */
+  hasBots: boolean;
 }
 
 export type Suit = "spades" | "hearts" | "diamonds" | "clubs";
@@ -105,6 +107,8 @@ export interface RoomView {
    * (gamble mode). A subset of isSpectator — you auto-rejoin when affordable.
    */
   isSittingOut: boolean;
+  /** Watching while queued to take a bot's seat at the start of the next hand. */
+  isQueued: boolean;
   state: GameView;
 }
 
