@@ -199,6 +199,7 @@ function Seat({
   onPlay,
   color,
   showDealer = true,
+  trumpSuit,
 }: {
   player: PlayerView;
   pos: Pos;
@@ -225,6 +226,8 @@ function Seat({
   /** Hand indices that are legal plays right now (others are dimmed). */
   legalPlays?: Set<number>;
   onPlay?: (i: number) => void;
+  /** Trump suit for the user's seat (shown to the right of the hand). */
+  trumpSuit?: Suit;
 }) {
   const size = isUser ? "md" : "sm";
   // Your hand is spread out (at most 4 cards); opponents' cards overlap. Spacing
@@ -268,50 +271,76 @@ function Seat({
           <span className="ml-1 font-normal italic opacity-80">· away</span>
         )}
       </span>
-      <div
-        className={`flex transition-opacity ${dimmed ? "opacity-40" : ""}`}
-        // Reserve the card area's height even when the hand is empty (after a
-        // pass or the last card is played), so the centered seat doesn't shrink
-        // and shift the name/money HUD upward.
-        style={{ minHeight: `calc(var(--cu, 40px) * ${isUser ? 2 : 1.4})` }}
-      >
-        {hand.map((c, i) => {
-          // Discard-selection visuals only apply while selecting.
-          const locked = selecting && i === lockedIndex;
-          const isSel = selecting && (selected?.has(i) ?? false);
-          // Trick-play visuals only apply when it's your turn to play.
-          const legal = playable && (legalPlays?.has(i) ?? false);
-          const illegalPlay = playable && !legal;
-          const tappable = selecting ? !locked : legal;
-          // The last `swapInCount` cards just arrived — fly them in from the
-          // deck, after the discards have flown out (5/sec).
-          const swapInIdx = i - (hand.length - swapInCount);
-          const isSwapIn = swapInCount > 0 && swapInIdx >= 0;
-          const cls = isSwapIn ? "deal-in" : animClass;
-          const delay = isSwapIn
-            ? `${0.35 + swapInIdx * 0.2}s`
-            : anim === "flip"
-              ? `${i * 0.08}s`
-              : undefined;
-          return (
-            <button
-              key={i}
-              type="button"
-              disabled={!tappable}
-              onClick={() =>
-                tappable && (selecting ? onToggle?.(i) : onPlay?.(i))
-              }
-              className={`${cls} block p-0 transition ${
-                tappable ? "cursor-pointer" : "cursor-default"
-              } ${isSel ? "-translate-y-3" : ""} ${
-                legal ? "hover:-translate-y-2" : ""
-              } ${locked || illegalPlay ? "opacity-40" : ""}`}
-              style={{ marginLeft: i === 0 ? 0 : spacing, animationDelay: delay }}
+      {/* Hand and trump grouped together and centered to prevent cutoff. */}
+      <div className="flex items-start gap-2">
+        {/* The hand cards. */}
+        <div
+          className={`flex transition-opacity ${dimmed ? "opacity-40" : ""}`}
+          // Reserve the card area's height even when the hand is empty (after a
+          // pass or the last card is played), so the centered seat doesn't shrink
+          // and shift the name/money HUD upward.
+          style={{ minHeight: `calc(var(--cu, 40px) * ${isUser ? 2 : 1.4})` }}
+        >
+          {hand.map((c, i) => {
+            // Discard-selection visuals only apply while selecting.
+            const locked = selecting && i === lockedIndex;
+            const isSel = selecting && (selected?.has(i) ?? false);
+            // Trick-play visuals only apply when it's your turn to play.
+            const legal = playable && (legalPlays?.has(i) ?? false);
+            const illegalPlay = playable && !legal;
+            const tappable = selecting ? !locked : legal;
+            // The last `swapInCount` cards just arrived — fly them in from the
+            // deck, after the discards have flown out (5/sec).
+            const swapInIdx = i - (hand.length - swapInCount);
+            const isSwapIn = swapInCount > 0 && swapInIdx >= 0;
+            const cls = isSwapIn ? "deal-in" : animClass;
+            const delay = isSwapIn
+              ? `${0.35 + swapInIdx * 0.2}s`
+              : anim === "flip"
+                ? `${i * 0.08}s`
+                : undefined;
+            return (
+              <button
+                key={i}
+                type="button"
+                disabled={!tappable}
+                onClick={() =>
+                  tappable && (selecting ? onToggle?.(i) : onPlay?.(i))
+                }
+                className={`${cls} block p-0 transition ${
+                  tappable ? "cursor-pointer" : "cursor-default"
+                } ${isSel ? "-translate-y-3" : ""} ${
+                  legal ? "hover:-translate-y-2" : ""
+                } ${locked || illegalPlay ? "opacity-40" : ""}`}
+                style={{ marginLeft: i === 0 ? 0 : spacing, animationDelay: delay }}
+              >
+                <Card card={c} size={size} highlight={isSel} color={color} />
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Trump suit indicator, shown to the right of the hand when revealed. */}
+        {isUser && trumpSuit && (
+          <div className="pointer-events-none flex flex-col items-center justify-center leading-none">
+            <span
+              className="font-bold uppercase tracking-[0.3em] text-white/90 drop-shadow"
+              style={{ fontSize: "calc(var(--cu, 40px) * 0.3)" }}
             >
-              <Card card={c} size={size} highlight={isSel} color={color} />
-            </button>
-          );
-        })}
+              Trump
+            </span>
+            <span
+              className={`leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] ${
+                trumpSuit === "hearts" || trumpSuit === "diamonds"
+                  ? "text-red-500"
+                  : "text-slate-900"
+              }`}
+              style={{ fontSize: "calc(var(--cu, 40px) * 1.7)" }}
+            >
+              {SUIT_SYMBOL[trumpSuit]}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1046,39 +1075,6 @@ export default function GameTable({
         />
       )}
 
-      {/* "Trump" + trump suit symbol, to the right of your hand. Shown only once
-          the trump card has actually flipped (the suit is known server-side from
-          the start, but stays hidden until the on-screen reveal). Red suits are
-          drawn red, black suits dark — like the cards. */}
-      {(phase === "trump" || phase === "live") && state.trumpSuit && (
-        <div
-          className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center leading-none"
-          style={{
-            // Sit to the right of your hand, but never let the symbol run off
-            // the right edge on narrow screens (clamp its centre inwards).
-            left: `min(calc(${USER_POS.x}% + var(--cu) * 4.6), calc(100% - var(--cu) * 1.8))`,
-            top: `calc(${USER_POS.y}% + var(--cu) * 0.4)`,
-          }}
-        >
-          <span
-            className="font-bold uppercase tracking-[0.3em] text-white/90 drop-shadow"
-            style={{ fontSize: "calc(var(--cu, 40px) * 0.3)" }}
-          >
-            Trump
-          </span>
-          <span
-            className={`leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] ${
-              state.trumpSuit === "hearts" || state.trumpSuit === "diamonds"
-                ? "text-red-500"
-                : "text-slate-900"
-            }`}
-            style={{ fontSize: "calc(var(--cu, 40px) * 1.7)" }}
-          >
-            {SUIT_SYMBOL[state.trumpSuit]}
-          </span>
-        </div>
-      )}
-
       {/* Status / info text, just above the deck (above the cards) */}
       {displayText && (
         <p
@@ -1191,6 +1187,11 @@ export default function GameTable({
               onPlay={playCard}
               color={colorOf(p.id)}
               showDealer={dealtPhase}
+              trumpSuit={
+                isUserSeat && (phase === "trump" || phase === "live") && state.trumpSuit
+                  ? state.trumpSuit
+                  : undefined
+              }
             />
           );
         })}
