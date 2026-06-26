@@ -1084,11 +1084,15 @@ export default function GameTable({
       )}
 
       {/* Status / info text, just above the deck (above the cards).
-          Add a reserved zone with padding to prevent overlap on narrow screens. */}
+          Add a reserved zone with padding and background to prevent overlap. */}
       {displayText && (
         <div
-          className="pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 -translate-y-1/2"
-          style={{ top: `calc(${CENTER.y}% - var(--cu) - 40px)`, padding: "8px 20px" }}
+          className="pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 rounded-lg"
+          style={{
+            top: `calc(${CENTER.y}% - var(--cu) - 40px)`,
+            padding: "calc(var(--cu) * 0.4) calc(var(--cu) * 1.2)",
+            backgroundColor: "rgba(0, 0, 0, 0.25)",
+          }}
         >
           <p className="whitespace-nowrap text-center text-2xl font-semibold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] sm:text-3xl">
             {displayText}
