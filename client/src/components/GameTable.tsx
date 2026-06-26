@@ -1547,7 +1547,7 @@ export default function GameTable({
 
       {/* End-of-hand: just Leave / Next, centered */}
       {phase === "live" && state.roundState === "end" && (
-        <div className="absolute left-1/2 top-[46%] z-40 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-4" style={{ transform: "translateX(-50%) translateY(-50%) scale(0.7)", transformOrigin: "center" }}>
+        <div className="absolute left-1/2 top-[46%] z-40 flex flex-col items-center gap-4" style={{ transform: "translateX(-50%) translateY(-50%) scale(0.7)" }}>
           <button
             onClick={() => onLeave?.()}
             className="rounded-xl border border-amber-400/40 bg-red-950/85 px-14 py-5 text-3xl font-bold text-amber-100 shadow-lg hover:bg-red-900/85"
