@@ -62,3 +62,10 @@ export function resolveHand(state: GameState): void {
   state.currentTrick = [];
   state.leadSuit = null;
 }
+
+/** Identify bot players who have gone broke (balance < 0). */
+export function getBrokeBots(state: GameState): string[] {
+  return state.players
+    .filter((p) => p.isBot && p.money < 0)
+    .map((p) => p.id);
+}

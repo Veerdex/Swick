@@ -21,6 +21,7 @@ import { startHand, dealerTrumpDecision, DEALER_EXTRA } from "../game/dealing.js
 import { applyKnock, finishKnockIn } from "../game/knockIn.js";
 import { applyDiscard } from "../game/discard.js";
 import { playCard, finishTrick } from "../game/tricks.js";
+import { getBrokeBots } from "../game/scoring.js";
 
 export type Result<T = void> =
   | { ok: true; value: T }
@@ -434,6 +435,17 @@ export class RoomManager {
     return ok(room);
   }
 
+  /** Remove bot players who have gone broke (balance < 0). */
+  private removeBrokeBots(room: Room): void {
+    const brokeBotIds = getBrokeBots(room.state);
+    for (const botId of brokeBotIds) {
+      const botIdx = room.state.players.findIndex((p) => p.id === botId);
+      if (botIdx !== -1) {
+        room.state.players.splice(botIdx, 1);
+      }
+    }
+  }
+
   /** Host deals the next hand once the previous one has ended. */
   nextHand(playerId: string): Result<Room> {
     const room = this.getRoomForPlayer(playerId);
@@ -441,6 +453,7 @@ export class RoomManager {
     if (room.hostId !== playerId) return fail("Only the host deals the next hand");
     if (room.state.roundState !== "end") return fail("The hand isn't over yet");
 
+    this.removeBrokeBots(room); // remove bots with negative balance
     this.seatQueued(room); // swap any queued humans in for bots
     // Re-seat/drop players by who can afford the next pot (gamble only).
     if (this.reseatGamble(room) < MIN_PLAYERS) {

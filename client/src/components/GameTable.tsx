@@ -1588,6 +1588,19 @@ export default function GameTable({
             >
               Waiting for more players
             </button>
+          ) : me && me.money <= 0 ? (
+            // Human player is broke — can't continue.
+            <div className="flex flex-col items-center gap-2">
+              <button
+                disabled
+                className="cursor-not-allowed rounded-xl border border-amber-400/30 bg-red-950/70 px-14 py-5 text-3xl font-bold text-amber-100/50 shadow-lg"
+              >
+                Play Again?
+              </button>
+              <p className="text-sm font-semibold text-red-400">
+                Out of funds — you cannot continue
+              </p>
+            </div>
           ) : (
             <button
               onClick={nextHand}
