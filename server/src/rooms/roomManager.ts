@@ -289,6 +289,23 @@ export class RoomManager {
     return ok(room);
   }
 
+  /** Host sets the starting currency for new players joining this table. */
+  setStartingCurrency(playerId: string, amount: number): Result<Room> {
+    const room = this.getRoomForPlayer(playerId);
+    if (!room) return fail("You are not in a room");
+    if (room.started) return fail("Game already started");
+    if (room.hostId !== playerId) return fail("Only the host sets the starting currency");
+    if (!Number.isInteger(amount) || amount <= 0) {
+      return fail("Starting currency must be a positive integer");
+    }
+    if (amount <= room.state.anteAmount * 2) {
+      return fail(`Starting currency must be greater than double the ante (${room.state.anteAmount * 2}¢)`);
+    }
+
+    room.state.startingCurrency = amount;
+    return ok(room);
+  }
+
   /** Toggle a player's readiness. Can't ready before the ante is set. */
   setReady(playerId: string, ready: boolean): Result<Room> {
     const room = this.getRoomForPlayer(playerId);

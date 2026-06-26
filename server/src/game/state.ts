@@ -76,6 +76,8 @@ export interface GameState {
    * this, rounding up to the nearest 5s.
    */
   decisionMult: number;
+  /** Starting currency for new players joining this table (host setting). */
+  startingCurrency: number;
   /** Current pot in cents. Invariant: potValue % 3 === 0. */
   potValue: number;
   /** Set penalties carried into the next hand's pot. */
@@ -192,6 +194,7 @@ export function createGameState(players: PlayerState[] = []): GameState {
     anteAmount: MIN_ANTE,
     anteSet: false,
     decisionMult: 1,
+    startingCurrency: STARTING_MONEY,
     potValue: 0,
     nextRoundPotBonus: 0,
 

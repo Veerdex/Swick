@@ -519,6 +519,10 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     settle(io, manager.setDecisionTime(userId, Number(payload?.mult)), ack);
   });
 
+  socket.on("room:setStartingCurrency", (payload: { amount?: number }, ack: Ack) => {
+    settle(io, manager.setStartingCurrency(userId, Number(payload?.amount)), ack);
+  });
+
   socket.on("room:ready", (payload: { ready?: boolean }, ack: Ack) => {
     settle(io, manager.setReady(userId, !!payload?.ready), ack);
   });

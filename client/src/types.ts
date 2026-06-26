@@ -62,6 +62,8 @@ export interface GameView {
   anteSet: boolean;
   /** Decision-time multiplier: 0.5 / 1 / 2 / 5, or 0 = Infinite (no limit). */
   decisionMult: number;
+  /** Starting currency for new players joining this table. */
+  startingCurrency: number;
   potValue: number;
   nextRoundPotBonus: number;
 

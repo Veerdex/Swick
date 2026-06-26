@@ -25,16 +25,21 @@ const timeLabel = (mult: number) =>
 export default function Room({ room, onLeft }: RoomProps) {
   const [error, setError] = useState<string | null>(null);
   const [anteInput, setAnteInput] = useState(String(room.state.anteAmount));
+  const [currencyInput, setCurrencyInput] = useState(String(room.state.startingCurrency));
 
   const myId = room.youId;
   const isHost = myId === room.hostId;
   const me = room.state.players.find((p) => p.id === myId);
 
-  // Keep the ante input in sync if the host changes it elsewhere.
+  // Keep the ante and currency inputs in sync if the host changes them elsewhere.
   // (hooks must run before any early return)
   useEffect(() => {
     setAnteInput(String(room.state.anteAmount));
   }, [room.state.anteAmount]);
+
+  useEffect(() => {
+    setCurrencyInput(String(room.state.startingCurrency));
+  }, [room.state.startingCurrency]);
 
   const ack = (a: ActionAck) => {
     if (!a.ok) setError(a.error ?? "Action failed");
@@ -48,6 +53,10 @@ export default function Room({ room, onLeft }: RoomProps) {
   const setDecisionTime = (mult: number) => {
     playSfx("ui-click");
     socket.emit("room:setDecisionTime", { mult }, ack);
+  };
+  const setStartingCurrency = () => {
+    playSfx("ui-click");
+    socket.emit("room:setStartingCurrency", { amount: Number(currencyInput) }, ack);
   };
   const toggleReady = () => {
     playSfx("ui-ready");
@@ -182,6 +191,37 @@ export default function Room({ room, onLeft }: RoomProps) {
           </>
         ) : (
           <p className="text-xs text-slate-500">The host sets the decision time.</p>
+        )}
+      </div>
+
+      <div className="rounded-xl bg-slate-800 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Starting Currency</h2>
+          <span className="text-sm text-emerald-300">
+            {room.state.startingCurrency}¢
+          </span>
+        </div>
+        {isHost ? (
+          <div className="flex gap-2">
+            <input
+              type="number"
+              min={3}
+              value={currencyInput}
+              onChange={(e) => setCurrencyInput(e.target.value)}
+              className="w-32 rounded-lg bg-slate-700 px-3 py-2 text-sm outline-none ring-1 ring-slate-600 focus:ring-indigo-400"
+            />
+            <button
+              onClick={setStartingCurrency}
+              className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400"
+            >
+              Set currency
+            </button>
+            <span className="self-center text-xs text-slate-500">
+              min {room.state.anteAmount * 2 + 1}¢
+            </span>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">The host sets the starting currency.</p>
         )}
       </div>
 
