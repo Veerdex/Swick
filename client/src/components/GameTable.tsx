@@ -328,8 +328,8 @@ function Seat({
           })}
         </div>
 
-        {/* Trump indicator: card when dealer kept it, symbol when passed. */}
-        {trumpSuit && (
+        {/* Trump indicator: card when dealer kept it, symbol when passed. Only shown for user's hand. */}
+        {isUser && trumpSuit && (
           <div className="pointer-events-none flex flex-col items-center justify-center gap-1 leading-none">
             <span
               className="font-bold uppercase tracking-[0.3em] text-white/90 drop-shadow"
