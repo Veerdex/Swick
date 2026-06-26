@@ -418,6 +418,8 @@ export default function GameTable({
   const [endSeconds, setEndSeconds] = useState(END_KICK_S);
   const onLeaveRef = useRef(onLeave);
   onLeaveRef.current = onLeave;
+  // Track if viewport is landscape/narrow (height < 110% of width) to reposition pot.
+  const [isLandscapeNarrow, setIsLandscapeNarrow] = useState(false);
   const revealed = sequence.slice(0, revealCount);
 
   // --- Seat layout (you at the bottom, others clockwise) ---
@@ -988,6 +990,18 @@ export default function GameTable({
     }
   }, [inTricks]);
 
+  // Check viewport aspect ratio to reposition pot on landscape/narrow screens.
+  // If height < 110% of width, move pot from top-left to bottom-left.
+  useEffect(() => {
+    const checkAspectRatio = () => {
+      const narrow = window.innerHeight < window.innerWidth * 1.1;
+      setIsLandscapeNarrow(narrow);
+    };
+    checkAspectRatio();
+    window.addEventListener("resize", checkAspectRatio);
+    return () => window.removeEventListener("resize", checkAspectRatio);
+  }, []);
+
   const statusText =
     phase === "waiting"
       ? "Waiting for all players..."
@@ -1027,10 +1041,15 @@ export default function GameTable({
         <div className="turn-glow pointer-events-none fixed inset-0 z-40" />
       )}
 
-      {/* Current pot — pot of gold tucked into the top-left, value below it.
+      {/* Current pot — repositioned on landscape/narrow screens.
+          On portrait: top-left. On landscape/narrow (height < 110% width): bottom-left.
           Above the turn-glow (z-40) so the edge glow doesn't haze its corner. */}
       {state.potValue > 0 && (
-        <div className="pointer-events-none absolute left-0 top-0 z-50 flex flex-col items-center">
+        <div
+          className={`pointer-events-none absolute z-50 flex flex-col items-center ${
+            isLandscapeNarrow ? "left-0 bottom-0" : "left-0 top-0"
+          }`}
+        >
           <img
             src="/pot-of-gold.png?v=2"
             alt="Pot"
