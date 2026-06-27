@@ -35,11 +35,6 @@ body {
     padding-top: max(0.5rem, env(safe-area-inset-top));
   }
 
-  /* During gameplay, shift game content down using margin for safe area */
-  .game-table {
-    margin-top: max(1.5rem, env(safe-area-inset-top));
-  }
-
   /* Room/spectator Leave button: push below safe area notch */
   main div[class*="pt-14"] {
     padding-top: calc(3.5rem + max(1.5rem, env(safe-area-inset-top))) !important;
