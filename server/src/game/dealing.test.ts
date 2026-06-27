@@ -47,13 +47,13 @@ test("determineFirstDealerIndex picks the seat of the first Ace", () => {
 });
 
 test("nextDealerIndex rotates left and wraps", () => {
-  assert.equal(nextDealerIndex(4, 0), 1);
-  assert.equal(nextDealerIndex(4, 3), 0);
+  assert.equal(nextDealerIndex(4, 0), 3);
+  assert.equal(nextDealerIndex(4, 3), 2);
 });
 
 test("clockwiseFromDealerLeft starts at dealer's left", () => {
-  assert.deepEqual(clockwiseFromDealerLeft(4, 0), [1, 2, 3, 0]);
-  assert.deepEqual(clockwiseFromDealerLeft(4, 2), [3, 0, 1, 2]);
+  assert.deepEqual(clockwiseFromDealerLeft(4, 0), [3, 2, 1, 0]);
+  assert.deepEqual(clockwiseFromDealerLeft(4, 2), [1, 0, 3, 2]);
 });
 
 test("startHand deals 3 to each, flips trump, and leaves a valid stock", () => {
@@ -119,7 +119,7 @@ test("second hand rotates the dealer to the left", () => {
   const firstDealerIndex = s.players.findIndex((p) => p.id === s.dealerId);
   startHand(s);
   const secondDealerIndex = s.players.findIndex((p) => p.id === s.dealerId);
-  assert.equal(secondDealerIndex, (firstDealerIndex + 1) % 4);
+  assert.equal(secondDealerIndex, (firstDealerIndex - 1 + 4) % 4);
 });
 
 test("dealer keeps trump: it joins the hand (4 cards) and is recorded", () => {
@@ -155,7 +155,7 @@ test("knock-in begins with the player to the dealer's left", () => {
   startHand(s);
   const dealerIndex = s.players.findIndex((p) => p.isDealer);
   dealerTrumpDecision(s, false);
-  assert.equal(s.currentKnockPlayerId, s.players[(dealerIndex + 1) % 5].id);
+  assert.equal(s.currentKnockPlayerId, s.players[(dealerIndex - 1 + 5) % 5].id);
 });
 
 test("dealerKeptFaceTrump reflects a kept face card only", () => {
