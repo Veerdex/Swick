@@ -68,6 +68,13 @@ export default function Lobby({ onEntered }: LobbyProps) {
     }
   }, []);
 
+  // Reset friends-only when switching to gamble (gamble tables must be public).
+  useEffect(() => {
+    if (createMode === "gamble" && friendsOnly) {
+      setFriendsOnly(false);
+    }
+  }, [createMode, friendsOnly]);
+
   // The player's profile (server-owned). The input edits a draft username.
   const [username, setUsernameState] = useState("");
   const [currency, setCurrency] = useState(0);
@@ -386,11 +393,17 @@ export default function Lobby({ onEntered }: LobbyProps) {
           </button>
         </div>
         {/* Friends only — hides the table from everyone but your friends.
-            Accounts only (guests have no friends list). */}
+            Casual mode only; gamble tables are always public. */}
         <button
           onClick={() => !auth.isGuest && setFriendsOnly((v) => !v)}
-          disabled={auth.isGuest}
-          title={auth.isGuest ? "Link an account to invite friends" : ""}
+          disabled={auth.isGuest || createMode === "gamble"}
+          title={
+            auth.isGuest
+              ? "Link an account to invite friends"
+              : createMode === "gamble"
+                ? "Gamble tables must be public"
+                : ""
+          }
           className={`mb-3 flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
             friendsOnly
               ? "border-amber-300 bg-amber-400/20 text-amber-100"
