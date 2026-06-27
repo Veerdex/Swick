@@ -48,6 +48,8 @@ export class RoomManager {
   private rooms = new Map<string, Room>();
   /** playerId -> roomId, so we can find/leave a player's room in O(1). */
   private playerRoom = new Map<string, string>();
+  /** roomId -> timeout handle, for ready-up deadlines. */
+  private readyUpTimeouts = new Map<string, NodeJS.Timeout>();
 
   getRoom(id: string): Room | undefined {
     return this.rooms.get(id);
@@ -466,17 +468,87 @@ export class RoomManager {
   nextHand(playerId: string): Result<Room> {
     const room = this.getRoomForPlayer(playerId);
     if (!room) return fail("You are not in a room");
-    if (room.hostId !== playerId) return fail("Only the host deals the next hand");
     if (room.state.roundState !== "end") return fail("The hand isn't over yet");
+
+    const player = room.state.players.find((p) => p.id === playerId);
+    if (!player) return fail("You are not in this room");
+
+    // Mark this player as ready
+    player.ready = true;
+
+    // Auto-ready all bot players
+    for (const p of room.state.players) {
+      if (p.isBot) p.ready = true;
+    }
+
+    // If this is the first ready-up, set the deadline (30s * decisionMult)
+    if (room.readyUpDeadline === null) {
+      const baseReadyUpMs = 30000; // 30 seconds
+      const mult = room.state.decisionMult || 1;
+      const readyUpMs = baseReadyUpMs * mult;
+      room.readyUpDeadline = Date.now() + readyUpMs;
+
+      // Set a timer to expire the ready-up if not all players ready by then
+      const timeout = setTimeout(() => {
+        this.expireReadyUp(room.id);
+      }, readyUpMs);
+      this.readyUpTimeouts.set(room.id, timeout);
+    }
+
+    // Check if all seated players are ready
+    if (this.allPlayersReady(room)) {
+      this.startNextHand(room);
+    }
+
+    return ok(room);
+  }
+
+  /** Check if all seated (non-spectator) players are ready. */
+  private allPlayersReady(room: Room): boolean {
+    return room.state.players.every((p) => p.ready);
+  }
+
+  /** Convert non-ready players to spectators and start the hand if possible. */
+  private expireReadyUp(roomId: string): Result<void> {
+    const room = this.rooms.get(roomId);
+    if (!room || room.state.roundState !== "end") return fail("Invalid room state");
+
+    // Move non-ready players to spectators
+    const nonReady = room.state.players.filter((p) => !p.ready);
+    for (const player of nonReady) {
+      room.spectators.push({ id: player.id, name: player.name });
+    }
+    room.state.players = room.state.players.filter((p) => p.ready);
+
+    // Check if there are enough players left to continue
+    if (room.state.players.length < MIN_PLAYERS) {
+      room.readyUpDeadline = null;
+      return fail("Not enough players to start");
+    }
+
+    this.startNextHand(room);
+    return ok(undefined);
+  }
+
+  /** Start the next hand after ready-up is complete. */
+  private startNextHand(room: Room): void {
+    // Clear the ready-up timeout
+    const timeout = this.readyUpTimeouts.get(room.id);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.readyUpTimeouts.delete(room.id);
+    }
+
+    room.readyUpDeadline = null;
 
     this.removeBrokeBots(room); // remove bots with negative balance
     this.seatQueued(room); // swap any queued humans in for bots
     // Re-seat/drop players by who can afford the next pot (gamble only).
     if (this.reseatGamble(room) < MIN_PLAYERS) {
-      return fail(`Need ${MIN_PLAYERS} players who can cover the pot`);
+      // If we can't seat enough players, the game ends
+      return;
     }
 
     startHand(room.state);
-    return ok(room);
   }
 }

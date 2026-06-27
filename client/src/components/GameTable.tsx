@@ -402,6 +402,10 @@ export default function GameTable({
   const [moneyFadeOut, setMoneyFadeOut] = useState(false);
   // Seconds left before an idle player is auto-kicked from the end screen.
   const [endSeconds, setEndSeconds] = useState(END_KICK_S);
+  // Seconds left for players to ready up after hand ends.
+  const [readyUpSeconds, setReadyUpSeconds] = useState<number | null>(null);
+  // Whether this player has readied up for the next hand.
+  const [playerReady, setPlayerReady] = useState(false);
   const onLeaveRef = useRef(onLeave);
   onLeaveRef.current = onLeave;
   // Track if viewport is landscape/narrow (height < 110% of width) to reposition pot.
@@ -535,8 +539,10 @@ export default function GameTable({
     if (!myTurnToPlay || !legalPlaySet.has(index)) return;
     socket.emit("room:playCard", { index }, () => {});
   };
-  const isHost = room.hostId === youId;
-  const nextHand = () => socket.emit("room:nextHand", () => {});
+  const nextHand = () => {
+    setPlayerReady(true);
+    socket.emit("room:nextHand", () => {});
+  };
 
   // A player passed (folded): fly their cards back to the deck, then drop them.
   const flyPassCards = (pid: string, count: number) => {
@@ -790,6 +796,33 @@ export default function GameTable({
       clearTimeout(timeout);
     };
   }, [activeDecision, decisionTotal, noTimers]);
+
+  // Ready-up countdown: when a ready-up deadline exists, tick down from 10s.
+  useEffect(() => {
+    if (phase !== "live" || state.roundState !== "end" || !room.readyUpDeadline) {
+      setReadyUpSeconds(null);
+      return;
+    }
+    if (noTimers) return;
+
+    const now = Date.now();
+    const remaining = Math.max(0, Math.ceil((room.readyUpDeadline - now) / 1000));
+    setReadyUpSeconds(remaining);
+
+    const tick = setInterval(() => {
+      const left = Math.max(0, Math.ceil((room.readyUpDeadline! - Date.now()) / 1000));
+      setReadyUpSeconds(left);
+    }, 200);
+
+    return () => clearInterval(tick);
+  }, [phase, state.roundState, room.readyUpDeadline, noTimers]);
+
+  // Reset ready status when transitioning away from the end screen.
+  useEffect(() => {
+    if (state.roundState !== "end") {
+      setPlayerReady(false);
+    }
+  }, [state.roundState]);
 
   // --- Sound effects: fire on the relevant transitions. Refs hold the previous
   // value so nothing plays on the initial mount (e.g. joining/reconnecting). ---
@@ -1593,13 +1626,20 @@ export default function GameTable({
               </p>
             </div>
           ) : (
-            <button
-              onClick={nextHand}
-              disabled={!isHost}
-              className="rounded-xl bg-gradient-to-b from-amber-300 to-amber-600 px-14 py-5 text-3xl font-bold text-red-950 shadow-lg hover:from-amber-200 hover:to-amber-500 disabled:opacity-60"
-            >
-              {isHost ? "Play Again?" : "Waiting…"}
-            </button>
+            <div className="flex flex-col items-center gap-2">
+              <button
+                onClick={nextHand}
+                disabled={playerReady}
+                className="rounded-xl bg-gradient-to-b from-amber-300 to-amber-600 px-14 py-5 text-3xl font-bold text-red-950 shadow-lg hover:from-amber-200 hover:to-amber-500 disabled:from-emerald-400 disabled:to-emerald-600 disabled:opacity-80"
+              >
+                {playerReady ? "✓ Ready" : "Play Again?"}
+              </button>
+              {readyUpSeconds !== null && (
+                <p className="text-sm font-semibold text-amber-100/70 drop-shadow">
+                  Ready in {readyUpSeconds}s
+                </p>
+              )}
+            </div>
           )}
           {!isSpectator && players.length >= MIN_PLAYERS && !noTimers && (
             <p className="mt-1 text-sm font-semibold text-amber-100/70 drop-shadow">

@@ -46,6 +46,8 @@ export interface Room {
   /** Once true, the room no longer appears in the joinable lobby list. */
   started: boolean;
   createdAt: number;
+  /** Deadline timestamp for players to ready up after hand ends; null when not active. */
+  readyUpDeadline: number | null;
   /** The authoritative game state; players live in state.players. */
   state: GameState;
 }
@@ -93,6 +95,7 @@ export function createRoom(
     seatQueue: [],
     started: false,
     createdAt: Date.now(),
+    readyUpDeadline: null,
     state,
   };
 }

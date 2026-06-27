@@ -27,7 +27,7 @@ function nextActiveAfter(state: GameState, playerId: string): string {
   const n = state.players.length;
   const idx = state.players.findIndex((p) => p.id === playerId);
   for (let k = 1; k <= n; k++) {
-    const p = state.players[(idx + k) % n];
+    const p = state.players[(idx - k + n * 100) % n];
     if (p.knockedIn) return p.id;
   }
   return playerId;

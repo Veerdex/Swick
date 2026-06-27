@@ -161,8 +161,8 @@ test("a full trick: trump wins, winner leads next, tricksWon increments", () => 
   s.trickNumber = 1; // avoid the ace-lead rule
   playCard(s, "p0", 0);
   assert.equal(s.leadSuit, "hearts");
-  playCard(s, "p1", 0);
-  playCard(s, "p2", 0); // completes the trick -> pause
+  playCard(s, "p2", 0); // next clockwise after p0
+  playCard(s, "p1", 0); // completes the trick -> pause
 
   // The completed trick is held for display until finishTrick runs.
   assert.equal(s.roundState, "trick-complete");

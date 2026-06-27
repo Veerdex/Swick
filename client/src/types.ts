@@ -113,6 +113,8 @@ export interface RoomView {
   isSittingOut: boolean;
   /** Watching while queued to take a bot's seat at the start of the next hand. */
   isQueued: boolean;
+  /** Deadline timestamp for ready-up after hand ends; null when not active. */
+  readyUpDeadline: number | null;
   state: GameView;
 }
 
