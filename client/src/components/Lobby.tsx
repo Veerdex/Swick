@@ -120,6 +120,13 @@ export default function Lobby({ onEntered }: LobbyProps) {
     });
   }, []);
 
+  // Live currency updates — emitted by the server when the daily bonus is awarded.
+  useEffect(() => {
+    const onCurrency = ({ currency }: { currency: number }) => setCurrency(currency);
+    socket.on("profile:currency", onCurrency);
+    return () => { socket.off("profile:currency", onCurrency); };
+  }, []);
+
   const saveUsername = async () => {
     setSaving(true);
     setNameMsg(null);

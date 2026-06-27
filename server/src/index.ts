@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { Server } from "socket.io";
 import { registerLobbyHandlers } from "./socket/lobby.js";
 import { verifyToken } from "./lib/supabase.js";
-import { ensureProfile, claimDaily, acceptedFriendIds } from "./lib/db.js";
+import { ensureProfile, setAllDailyFlags, acceptedFriendIds } from "./lib/db.js";
 
 // Railway injects PORT in production; fall back to 3001 for local dev.
 const PORT = Number(process.env.PORT) || 3001;
@@ -41,7 +41,7 @@ io.use(async (socket, next) => {
   try {
     const profile = await ensureProfile(auth.userId);
     socket.data.username = profile.username;
-    socket.data.currency = await claimDaily(auth.userId); // applies +250/day
+    socket.data.currency = profile.currency;
     if (!auth.isGuest) {
       socket.data.friendIds = new Set(await acceptedFriendIds(auth.userId));
     }
@@ -70,3 +70,12 @@ httpServer.listen(PORT, () => {
   console.log(`SWICK server listening on http://localhost:${PORT}`);
   console.log(`Accepting Socket.io connections from ${CLIENT_ORIGIN}`);
 });
+
+// Every 23 hours, set daily_claim_flag = 1 for all players so they can earn
+// their 250¢ bonus the next time they join a game.
+const DAILY_INTERVAL_MS = 23 * 60 * 60 * 1000;
+setInterval(() => {
+  setAllDailyFlags()
+    .then(() => console.log("[daily] claim flags reset for all players"))
+    .catch((err) => console.error("[daily] failed to reset claim flags:", err));
+}, DAILY_INTERVAL_MS);

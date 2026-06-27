@@ -71,15 +71,29 @@ export async function ensureProfile(userId: string): Promise<Profile> {
   throw new Error("ensureProfile: could not allocate a unique username");
 }
 
-/** Credit the daily bonus if it's a new day; returns the resulting balance. */
-export async function claimDaily(userId: string): Promise<number> {
-  const res = await fetch(`${url}/rest/v1/rpc/claim_daily`, {
+/**
+ * Atomically check and consume the daily_claim_flag for a player.
+ * If the flag is 1, awards 250¢ and resets it to 0. Returns the amount awarded
+ * (250 or 0). Called when a player joins or creates a game room.
+ */
+export async function claimDailyOnJoin(userId: string): Promise<number> {
+  const res = await fetch(`${url}/rest/v1/rpc/claim_daily_on_join`, {
     method: "POST",
     headers,
     body: JSON.stringify({ uid: userId }),
   });
-  if (!res.ok) throw new Error(`claimDaily ${res.status}`);
+  if (!res.ok) throw new Error(`claimDailyOnJoin ${res.status}`);
   return (await res.json()) as number;
+}
+
+/** Set daily_claim_flag = 1 for all players. Called every 23 hours server-side. */
+export async function setAllDailyFlags(): Promise<void> {
+  const res = await fetch(`${url}/rest/v1/rpc/set_all_daily_flags`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) throw new Error(`setAllDailyFlags ${res.status}`);
 }
 
 /** Persist a player's currency (gamble winnings/losses). */

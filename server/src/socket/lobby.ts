@@ -16,6 +16,7 @@ import {
 import {
   setUsername,
   setCurrency,
+  claimDailyOnJoin,
   listFriends,
   addFriend,
   respondFriend,
@@ -327,6 +328,22 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
   const isGuest = () => socket.data.isGuest === true;
   const balance = () => (socket.data.currency as number) ?? 0;
 
+  // Award the 250¢ daily bonus if the player's flag is set, then emit the
+  // updated balance so the client UI reflects it immediately.
+  const maybeClaimDaily = async () => {
+    if (isGuest()) return;
+    try {
+      const awarded = await claimDailyOnJoin(userId);
+      if (awarded > 0) {
+        socket.data.currency = balance() + awarded;
+        socket.emit("profile:currency", { currency: socket.data.currency as number });
+        console.log(`[daily] ${nameOf()} claimed ${awarded}¢ daily bonus`);
+      }
+    } catch (err) {
+      console.error("[daily] claimDailyOnJoin failed:", err);
+    }
+  };
+
   // Reconnect: if this user still holds a seat they dropped from mid-hand,
   // restore control of it (a bot was covering) instead of starting fresh.
   const seated = manager.getRoomForPlayer(userId);
@@ -371,6 +388,7 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
       ack?.({ ok: true, roomId: res.value.id });
       broadcastRoom(io, res.value);
       broadcastLobby(io);
+      void maybeClaimDaily();
     },
   );
 
@@ -398,6 +416,7 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     ack?.({ ok: true, roomId: res.value.id });
     broadcastRoom(io, res.value);
     broadcastLobby(io);
+    void maybeClaimDaily();
   });
 
   socket.on("room:spectate", (payload: { roomId?: string }, ack: Ack) => {
