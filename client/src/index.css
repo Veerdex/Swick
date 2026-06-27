@@ -35,9 +35,9 @@ body {
     padding-top: max(0.5rem, env(safe-area-inset-top));
   }
 
-  /* During gameplay, shift the game table down for safe area, but keep user hand and hamburger button in place */
+  /* During gameplay, shift game content down using margin for safe area */
   .game-table {
-    padding-top: max(1.5rem, env(safe-area-inset-top));
+    margin-top: max(1.5rem, env(safe-area-inset-top));
   }
 }
 
