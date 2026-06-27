@@ -43,7 +43,7 @@ export function nextDealerIndex(
   numPlayers: number,
   currentDealerIndex: number,
 ): number {
-  return (currentDealerIndex - 1 + numPlayers) % numPlayers;
+  return (currentDealerIndex + 1) % numPlayers;
 }
 
 /** Seat order for dealing/turns: start at the dealer's left, go clockwise. */
@@ -53,7 +53,7 @@ export function clockwiseFromDealerLeft(
 ): number[] {
   return Array.from(
     { length: numPlayers },
-    (_, k) => (dealerIndex - 1 - k + numPlayers * 10) % numPlayers,
+    (_, k) => (dealerIndex + 1 + k) % numPlayers,
   );
 }
 
