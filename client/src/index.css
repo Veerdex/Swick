@@ -28,11 +28,14 @@ body {
   overscroll-behavior: none;
 }
 
-/* In portrait mode, add padding to respect safe areas (notches, camera cutouts, home indicator). */
+/* In portrait mode, add top padding for notches and camera cutouts. */
 @media (orientation: portrait) {
   main {
     padding-top: max(1.5rem, env(safe-area-inset-top));
-    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+  /* Scrollable sections in lobby need bottom padding for home indicator */
+  section.h-full.w-full.shrink-0.snap-center {
+    padding-bottom: max(3rem, env(safe-area-inset-bottom)) !important;
   }
 }
 
