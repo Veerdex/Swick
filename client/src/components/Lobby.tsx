@@ -427,21 +427,18 @@ export default function Lobby({ onEntered }: LobbyProps) {
               const gamble = room.mode === "gamble";
               const gambleBlocked =
                 gamble && (auth.isGuest || currency <= 0);
-              const full = room.playerCount >= room.maxPlayers;
-              // You can join: an open seat pre-game, a below-min refill, or a
-              // full table that has a bot to replace.
-              const canJoin =
-                !gambleBlocked &&
-                ((full && room.hasBots) ||
-                  (!full && (!room.started || room.needsPlayers)));
+              // Joinable whenever there are fewer than 6 humans at the table.
+              // Mid-game joins queue for the next hand (replacing a bot or
+              // filling an open slot when one becomes available).
+              const canJoin = !gambleBlocked && room.humanCount < room.maxPlayers;
               const joinTitle = gambleBlocked
                 ? auth.isGuest
                   ? "Gamble mode requires an account"
                   : "You need a positive balance to join gamble mode"
-                : full && room.hasBots
-                  ? "Replace a bot (you'll play the next round)"
-                  : room.needsPlayers
-                    ? "Join to fill the table"
+                : room.started && room.hasBots
+                  ? "Replace a bot — you'll play starting next hand"
+                  : room.started
+                    ? "Join — you'll play starting next hand"
                     : "";
               return (
                 <li
@@ -467,12 +464,10 @@ export default function Lobby({ onEntered }: LobbyProps) {
                       )}
                     </p>
                     <p className="text-xs text-amber-100/60">
-                      {room.playerCount}/{room.maxPlayers} players · #{room.id}
-                      {room.needsPlayers
-                        ? " · needs players"
-                        : room.started
-                          ? " · in progress"
-                          : ""}
+                      {room.humanCount}/{room.maxPlayers} humans
+                      {room.hasBots ? ` + ${room.playerCount - room.humanCount} bots` : ""}
+                      {" "}· #{room.id}
+                      {room.started ? " · in progress" : ""}
                       {room.spectatorCount > 0
                         ? ` · ${room.spectatorCount} watching`
                         : ""}
@@ -482,7 +477,7 @@ export default function Lobby({ onEntered }: LobbyProps) {
                     <button
                       onClick={() => joinRoom(room.id)}
                       disabled={!canJoin}
-                      title={joinTitle || (room.started ? "Game in progress" : "")}
+                      title={canJoin ? joinTitle : (gambleBlocked ? joinTitle : "Room is full")}
                       className={`${GOLD_BTN} px-3 py-1.5`}
                     >
                       Join

@@ -18,6 +18,8 @@ export interface RoomSummary {
   needsPlayers: boolean;
   /** Has a bot — a full table is still joinable by replacing one. */
   hasBots: boolean;
+  /** Number of human (non-bot) players seated — the join gate. */
+  humanCount: number;
 }
 
 export type Suit = "spades" | "hearts" | "diamonds" | "clubs";

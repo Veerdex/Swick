@@ -55,15 +55,17 @@ test("joinRoom adds players up to the max, then rejects", () => {
   assert.equal(overflow.ok, false);
 });
 
-test("joinRoom rejects unknown rooms and started games", () => {
+test("joinRoom rejects unknown rooms; mid-game joins queue when human slots remain", () => {
   const { mgr, room } = withRoom();
   assert.equal(mgr.joinRoom("NOPE12", createPlayer("x", "X")).ok, false);
 
   mgr.setAnte("host", 3);
   mgr.setReady("host", true);
-  fillReady(mgr, room, 2);
+  fillReady(mgr, room, 2); // 3 humans, game started
   assert.ok(mgr.startGame("host").ok);
-  assert.equal(mgr.joinRoom(room.id, createPlayer("late", "Late")).ok, false);
+  // Mid-game join succeeds (queues the player) since < 6 humans
+  assert.ok(mgr.joinRoom(room.id, createPlayer("late", "Late")).ok);
+  assert.ok(room.seatQueue.includes("late"), "queued for next hand");
 });
 
 test("listRooms shows live tables (including in-progress, for spectating)", () => {
@@ -237,26 +239,26 @@ test("friends-only rooms are hidden from non-friends", () => {
   );
 });
 
-test("a started game below the minimum re-opens for a joiner (refill)", () => {
+test("mid-game joiners queue; needsPlayers tracks dropping below minimum", () => {
   const { mgr, room } = withRoom();
   mgr.setAnte("host", 3);
   mgr.setReady("host", true);
   const [, p1] = fillReady(mgr, room, 2); // 3 players, all ready
   assert.ok(mgr.startGame("host").ok);
 
-  // A full (>= MIN) started game still rejects joiners.
-  assert.equal(mgr.joinRoom(room.id, createPlayer("late", "Late")).ok, false);
+  // A started game with human room queues the joiner (not an immediate seat).
+  assert.ok(mgr.joinRoom(room.id, createPlayer("late", "Late")).ok);
+  assert.ok(room.seatQueue.includes("late"), "queued for next hand");
   assert.equal(roomSummary(room).needsPlayers, false);
 
-  // Drop below the minimum.
+  // Drop below the minimum — refill is urgent.
   mgr.leaveRoom(p1);
   assert.equal(room.state.players.length, 2);
   assert.equal(roomSummary(room).needsPlayers, true, "now open to refill");
 
-  // A joiner can fill the seat even though the game is started.
+  // Joining when needsPlayers queues the joiner; they seat at next hand.
   assert.ok(mgr.joinRoom(room.id, createPlayer("refill", "Refill")).ok);
-  assert.equal(room.state.players.length, 3);
-  assert.equal(roomSummary(room).needsPlayers, false, "back at the minimum");
+  assert.ok(room.seatQueue.includes("refill"));
 });
 
 test("setDecisionTime: host only, validated multiplier, defaults to 1", () => {

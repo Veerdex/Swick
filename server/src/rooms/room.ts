@@ -66,6 +66,8 @@ export interface RoomSummary {
   needsPlayers: boolean;
   /** Has at least one bot — a full table is still joinable by replacing one. */
   hasBots: boolean;
+  /** Number of human (non-bot) players seated — the join gate. */
+  humanCount: number;
 }
 
 export function createRoom(
@@ -103,5 +105,6 @@ export function roomSummary(room: Room): RoomSummary {
     started: room.started,
     needsPlayers: room.started && room.state.players.length < MIN_PLAYERS,
     hasBots: room.state.players.some((p) => p.isBot),
+    humanCount: room.state.players.filter((p) => !p.isBot).length,
   };
 }

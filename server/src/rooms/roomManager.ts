@@ -117,32 +117,24 @@ export class RoomManager {
     if (!room) return fail("Room not found");
     if (this.playerRoom.has(player.id)) return fail("You are already in a room");
 
-    const full = room.state.players.length >= MAX_PLAYERS;
-    const hasBot = room.state.players.some((p) => p.isBot);
+    const humanCount = room.state.players.filter((p) => !p.isBot).length;
+    // Any table with fewer than MAX_PLAYERS humans can be joined.
+    if (humanCount >= MAX_PLAYERS) return fail("Room is full");
 
-    // A full table is still joinable if it has bots — replace one. Before the
-    // game starts the swap is immediate; mid-game the joiner queues and takes a
-    // bot's seat at the start of the next hand.
-    if (full) {
-      if (!hasBot) return fail("Room is full");
-      if (!room.started) {
-        this.removeOneBot(room);
-        room.state.players.push(player);
-        this.playerRoom.set(player.id, roomId);
-        return ok(room);
-      }
-      room.spectators.push({ id: player.id, name: player.name });
-      room.seatQueue.push(player.id);
+    const full = room.state.players.length >= MAX_PLAYERS;
+
+    if (!room.started) {
+      // Pre-game: if total seats are full (due to bots), bump one bot immediately.
+      if (full) this.removeOneBot(room);
+      room.state.players.push(player);
       this.playerRoom.set(player.id, roomId);
       return ok(room);
     }
 
-    // Not full. A started game is closed to joiners EXCEPT when it dropped below
-    // the minimum (players left mid-game) — then it accepts a refill.
-    if (room.started && room.state.players.length >= MIN_PLAYERS) {
-      return fail("That game has already started");
-    }
-    room.state.players.push(player);
+    // Mid-game join: queue to take a seat at the start of the next hand.
+    // Replaces a bot if one exists, otherwise fills the open human slot.
+    room.spectators.push({ id: player.id, name: player.name });
+    room.seatQueue.push(player.id);
     this.playerRoom.set(player.id, roomId);
     return ok(room);
   }
@@ -156,13 +148,18 @@ export class RoomManager {
     return true;
   }
 
-  /** Seat queued humans by swapping out bots, at the start of a hand. */
+  /** Seat queued humans at the start of a hand — replacing bots or filling open slots. */
   private seatQueued(room: Room): void {
-    while (room.seatQueue.length && room.state.players.some((p) => p.isBot)) {
+    while (room.seatQueue.length) {
+      const hasBot = room.state.players.some((p) => p.isBot);
+      const hasRoom = room.state.players.length < MAX_PLAYERS;
+      if (!hasBot && !hasRoom) break; // table is full of humans, can't seat anyone
+
       const id = room.seatQueue.shift()!;
       const spec = room.spectators.find((s) => s.id === id);
       if (!spec) continue; // they left while queued
-      this.removeOneBot(room);
+
+      if (hasBot) this.removeOneBot(room);
       room.spectators = room.spectators.filter((s) => s.id !== id);
       room.state.players.push(createPlayer(id, spec.name));
     }
