@@ -34,6 +34,11 @@ body {
   main > div:first-child {
     padding-top: max(0.5rem, env(safe-area-inset-top));
   }
+
+  /* During gameplay, shift the game table down for safe area, but keep user hand and hamburger button in place */
+  .game-table {
+    padding-top: max(1.5rem, env(safe-area-inset-top));
+  }
 }
 
 /* Hide the scrollbar on the swipeable lobby pager (and any opt-in element),
