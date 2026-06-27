@@ -6,7 +6,9 @@ import { loadProfile, setUsername } from "../lib/profile";
 import SwickCards from "./SwickCards";
 import Friends from "./Friends";
 import ScaledMenu from "./ScaledMenu";
+import SfxControl from "./SfxControl";
 import { playSfx } from "../lib/sfx";
+import { useBackgroundMusic } from "../lib/useBackgroundMusic";
 import type { ActionAck, GameMode, RoomSummary } from "../types";
 
 // Shared casino styling: deep-red panels with a gold border, gold-bordered
@@ -189,6 +191,47 @@ export default function Lobby({ onEntered }: LobbyProps) {
     socket.emit("room:spectate", { roomId }, enterAck);
   };
 
+  // Sound settings for the Settings tab
+  function SoundSettings() {
+    const { musicOn, toggleMusic } = useBackgroundMusic();
+    const handleToggleMusic = () => {
+      playSfx("ui-click");
+      toggleMusic();
+    };
+
+    return (
+      <div className={PANEL}>
+        <h3 className="mb-3 text-sm font-semibold text-amber-100">Sound</h3>
+
+        {/* Music toggle */}
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xl leading-none">{musicOn ? "🔊" : "🔇"}</span>
+            <span className="text-sm text-amber-100/80">Background Music</span>
+          </div>
+          <button
+            onClick={handleToggleMusic}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+              musicOn
+                ? "bg-gradient-to-b from-amber-300 to-amber-600 text-red-950"
+                : "border border-amber-400/40 text-amber-100/80"
+            }`}
+          >
+            {musicOn ? "On" : "Off"}
+          </button>
+        </div>
+
+        {/* Sound effects control */}
+        <div className="border-t border-amber-400/20 pt-3">
+          <p className="mb-2 text-xs uppercase tracking-wide text-amber-200/80">
+            Sound Effects
+          </p>
+          <SfxControl variant="inline" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <ScaledMenu className="pt-12" scaleMultiplier={isLandscape ? 0.7 : 1}>
         {/* Floating SWICK title */}
@@ -287,6 +330,9 @@ export default function Lobby({ onEntered }: LobbyProps) {
           )}
         </div>
       )}
+
+      {/* Sound settings */}
+      <SoundSettings />
         </section>
 
         {/* ─────────────── Friends ─────────────── */}

@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react
 import { socket } from "../lib/socket";
 import { playSfx } from "../lib/sfx";
 import Card from "./Card";
+import GameMenu from "./GameMenu";
 import type {
   Card as CardT,
   CardSlot,
@@ -1607,6 +1608,9 @@ export default function GameTable({
           )}
         </div>
       )}
+
+      {/* Game menu with sound controls (hamburger in bottom right) */}
+      <GameMenu />
     </div>
   );
 }

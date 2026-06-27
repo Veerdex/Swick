@@ -7,7 +7,6 @@ import Frame from "./components/Frame";
 import Intro from "./components/Intro";
 import Lobby from "./components/Lobby";
 import Room from "./components/Room";
-import SfxControl from "./components/SfxControl";
 import type { RoomView } from "./types";
 
 // Phase 4: lobby & room system. App switches between the lobby (browse/create/
@@ -16,7 +15,7 @@ import type { RoomView } from "./types";
 export default function App() {
   const [room, setRoom] = useState<RoomView | null>(null);
   const [showIntro, setShowIntro] = useState(true);
-  const { audioRef, musicOn, toggleMusic } = useBackgroundMusic();
+  const { audioRef } = useBackgroundMusic();
   usePreventZoom();
 
   // Once a hand is in progress the backdrop becomes the green poker table.
@@ -75,20 +74,6 @@ export default function App() {
       {/* Looping background music. Starts on first interaction (autoplay policy). */}
       <audio ref={audioRef} src="/casino-music.mp3" loop preload="auto" />
 
-      {/* Music toggle — hidden during the intro. */}
-      {!showIntro && (
-        <button
-          onClick={toggleMusic}
-          aria-label={musicOn ? "Mute music" : "Unmute music"}
-          title={musicOn ? "Mute music" : "Play music"}
-          className="fixed right-7 top-7 z-20 rounded-xl bg-slate-900/70 px-3 py-2 text-2xl leading-none hover:bg-slate-800"
-        >
-          {musicOn ? "🔊" : "🔇"}
-        </button>
-      )}
-
-      {/* Sound-effects control — under the music toggle, hidden during intro. */}
-      {!showIntro && <SfxControl />}
 
       {showIntro ? (
         <Intro onPlay={() => setShowIntro(false)} />

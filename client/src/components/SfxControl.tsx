@@ -1,12 +1,20 @@
 import { useSfxControls } from "../lib/useSfx";
 import { playSfx } from "../lib/sfx";
 
-// Sits just under the music toggle: a mute button plus a volume slider for
-// sound effects (independent of the background music).
-export default function SfxControl() {
+interface SfxControlProps {
+  variant?: "fixed" | "inline";
+}
+
+// Sound effects control: mute button + volume slider. Variant controls positioning.
+export default function SfxControl({ variant = "fixed" }: SfxControlProps) {
   const { volume, muted, setVolume, toggleMuted } = useSfxControls();
+
+  const className = variant === "fixed"
+    ? "fixed right-7 top-[4.75rem] z-20 flex items-center gap-2 rounded-xl bg-slate-900/70 px-3 py-2"
+    : "flex items-center gap-2 rounded-xl bg-slate-900/70 px-3 py-2";
+
   return (
-    <div className="fixed right-7 top-[4.75rem] z-20 flex items-center gap-2 rounded-xl bg-slate-900/70 px-3 py-2">
+    <div className={className}>
       <button
         onClick={toggleMuted}
         aria-label={muted ? "Unmute sound effects" : "Mute sound effects"}
