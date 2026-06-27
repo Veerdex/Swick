@@ -1211,7 +1211,7 @@ export default function GameTable({
               color={colorOf(p.id)}
               showDealer={dealtPhase}
               trumpCard={
-                (phase === "trump" || phase === "live") && state.dealerKeptTrump
+                (phase === "trump" || phase === "live") && state.trumpCard
                   ? state.trumpCard
                   : undefined
               }
