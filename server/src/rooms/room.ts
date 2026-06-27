@@ -77,6 +77,11 @@ export function createRoom(
   mode: GameMode = "casual",
   friendsOnly = false,
 ): Room {
+  const state = createGameState([host]);
+  // Gamble tables always use 2× decision time.
+  if (mode === "gamble") {
+    state.decisionMult = 2;
+  }
   return {
     id,
     name: name.trim() || "SWICK Table",
@@ -88,7 +93,7 @@ export function createRoom(
     seatQueue: [],
     started: false,
     createdAt: Date.now(),
-    state: createGameState([host]),
+    state,
   };
 }
 

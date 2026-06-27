@@ -161,69 +161,81 @@ export default function Room({ room, onLeft }: RoomProps) {
         )}
       </div>
 
-      <div className="rounded-xl bg-slate-800 p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Decision time</h2>
-          <span className="text-sm text-emerald-300">
-            {timeLabel(room.state.decisionMult)}
-          </span>
-        </div>
-        {isHost ? (
-          <>
-            <div className="flex gap-2">
-              {TIME_OPTIONS.map((o) => (
-                <button
-                  key={o.mult}
-                  onClick={() => setDecisionTime(o.mult)}
-                  className={`flex-1 rounded-lg px-2 py-2 text-sm font-medium ${
-                    room.state.decisionMult === o.mult
-                      ? "bg-indigo-500 text-white"
-                      : "bg-slate-700 text-slate-200 hover:bg-slate-600"
-                  }`}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-slate-500">
-              Multiplies each turn's time limit (1× = normal, ∞ = no limit).
-            </p>
-          </>
-        ) : (
-          <p className="text-xs text-slate-500">The host sets the decision time.</p>
-        )}
-      </div>
-
-      <div className="rounded-xl bg-slate-800 p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Starting Currency</h2>
-          <span className="text-sm text-emerald-300">
-            {room.state.startingCurrency}¢
-          </span>
-        </div>
-        {isHost ? (
-          <div className="flex gap-2">
-            <input
-              type="number"
-              min={3}
-              value={currencyInput}
-              onChange={(e) => setCurrencyInput(e.target.value)}
-              className="w-32 rounded-lg bg-slate-700 px-3 py-2 text-sm outline-none ring-1 ring-slate-600 focus:ring-indigo-400"
-            />
-            <button
-              onClick={setStartingCurrency}
-              className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400"
-            >
-              Set currency
-            </button>
-            <span className="self-center text-xs text-slate-500">
-              min {room.state.anteAmount * 2 + 1}¢
+      {room.mode === "casual" ? (
+        <div className="rounded-xl bg-slate-800 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Decision time</h2>
+            <span className="text-sm text-emerald-300">
+              {timeLabel(room.state.decisionMult)}
             </span>
           </div>
-        ) : (
-          <p className="text-xs text-slate-500">The host sets the starting currency.</p>
-        )}
-      </div>
+          {isHost ? (
+            <>
+              <div className="flex gap-2">
+                {TIME_OPTIONS.map((o) => (
+                  <button
+                    key={o.mult}
+                    onClick={() => setDecisionTime(o.mult)}
+                    className={`flex-1 rounded-lg px-2 py-2 text-sm font-medium ${
+                      room.state.decisionMult === o.mult
+                        ? "bg-indigo-500 text-white"
+                        : "bg-slate-700 text-slate-200 hover:bg-slate-600"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                Multiplies each turn's time limit (1× = normal, ∞ = no limit).
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-slate-500">The host sets the decision time.</p>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-xl bg-slate-800 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Decision time</h2>
+            <span className="text-sm text-emerald-300">2×</span>
+          </div>
+          <p className="text-xs text-slate-500">Gamble tables always use 2× decision time.</p>
+        </div>
+      )}
+
+      {room.mode === "casual" && (
+        <div className="rounded-xl bg-slate-800 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Starting Currency</h2>
+            <span className="text-sm text-emerald-300">
+              {room.state.startingCurrency}¢
+            </span>
+          </div>
+          {isHost ? (
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min={3}
+                value={currencyInput}
+                onChange={(e) => setCurrencyInput(e.target.value)}
+                className="w-32 rounded-lg bg-slate-700 px-3 py-2 text-sm outline-none ring-1 ring-slate-600 focus:ring-indigo-400"
+              />
+              <button
+                onClick={setStartingCurrency}
+                className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400"
+              >
+                Set currency
+              </button>
+              <span className="self-center text-xs text-slate-500">
+                min {room.state.anteAmount * 2 + 1}¢
+              </span>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">The host sets the starting currency.</p>
+          )}
+        </div>
+      )}
 
       <div className="rounded-xl bg-slate-800 p-4">
         <div className="mb-3 flex items-center justify-between">
