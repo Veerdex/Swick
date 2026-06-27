@@ -39,6 +39,11 @@ body {
   .game-table {
     margin-top: max(1.5rem, env(safe-area-inset-top));
   }
+
+  /* Room/spectator Leave button: push below safe area notch */
+  main div[class*="pt-14"] {
+    padding-top: calc(3.5rem + max(1.5rem, env(safe-area-inset-top))) !important;
+  }
 }
 
 /* Hide the scrollbar on the swipeable lobby pager (and any opt-in element),
