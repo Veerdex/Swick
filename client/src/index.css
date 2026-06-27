@@ -28,14 +28,11 @@ body {
   overscroll-behavior: none;
 }
 
-/* In portrait mode, add top padding for notches and camera cutouts. */
+/* In portrait mode, add safe area padding only to header elements that could be covered by notch. */
 @media (orientation: portrait) {
-  main {
-    padding-top: max(1.5rem, env(safe-area-inset-top));
-  }
-  /* Scrollable sections in lobby/room need bottom padding for home indicator and tab bar */
-  section[class*="overflow-y-auto"] {
-    padding-bottom: calc(2rem + env(safe-area-inset-bottom)) !important;
+  /* Only add top padding to header elements, not the whole page */
+  main > div:first-child {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
   }
 }
 
