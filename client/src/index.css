@@ -28,10 +28,11 @@ body {
   overscroll-behavior: none;
 }
 
-/* In portrait mode, add padding-top to respect safe areas (notches, camera cutouts). */
+/* In portrait mode, add padding to respect safe areas (notches, camera cutouts, home indicator). */
 @media (orientation: portrait) {
   main {
     padding-top: max(1.5rem, env(safe-area-inset-top));
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
   }
 }
 
