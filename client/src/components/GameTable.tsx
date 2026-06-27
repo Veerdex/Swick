@@ -41,15 +41,15 @@ const deckFly = (pos: Pos): CSSProperties =>
 // For 3 and 4 player games, side seats are slightly shifted down to avoid overlapping
 // with the info text above the deck.
 const OTHER_SLOTS: Record<number, Pos[]> = {
-  3: [{ x: 16, y: 46 }, { x: 50, y: 11 }], // left (shifted down), top
-  4: [{ x: 16, y: 46 }, { x: 50, y: 11 }, { x: 84, y: 46 }], // left (shifted down), top, right (shifted down)
+  3: [{ x: 84, y: 46 }, { x: 50, y: 11 }], // right (shifted down), top
+  4: [{ x: 84, y: 46 }, { x: 50, y: 11 }, { x: 16, y: 46 }], // right (shifted down), top, left (shifted down)
   5: [
-    { x: 16, y: 42 }, { x: 50, y: 11 }, { x: 85, y: 30 }, { x: 85, y: 56 },
-  ], // left, top, 2 right
+    { x: 85, y: 56 }, { x: 85, y: 30 }, { x: 50, y: 11 }, { x: 16, y: 42 },
+  ], // 2 right, top, left
   6: [
-    { x: 16, y: 56 }, { x: 16, y: 30 }, { x: 50, y: 11 },
-    { x: 85, y: 30 }, { x: 85, y: 56 },
-  ], // 2 left, top, 2 right
+    { x: 85, y: 56 }, { x: 85, y: 30 }, { x: 50, y: 11 },
+    { x: 16, y: 30 }, { x: 16, y: 56 },
+  ], // 2 right, top, 2 left
 };
 
 // --- Dealer-selection cinematic + deal timing -----------------------------

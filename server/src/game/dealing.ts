@@ -53,7 +53,7 @@ export function clockwiseFromDealerLeft(
 ): number[] {
   return Array.from(
     { length: numPlayers },
-    (_, k) => (dealerIndex + 1 + k) % numPlayers,
+    (_, k) => (dealerIndex - 1 - k + numPlayers * 100) % numPlayers,
   );
 }
 

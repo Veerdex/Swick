@@ -52,8 +52,8 @@ test("nextDealerIndex rotates left and wraps", () => {
 });
 
 test("clockwiseFromDealerLeft starts at dealer's left", () => {
-  assert.deepEqual(clockwiseFromDealerLeft(4, 0), [1, 2, 3, 0]);
-  assert.deepEqual(clockwiseFromDealerLeft(4, 2), [3, 0, 1, 2]);
+  assert.deepEqual(clockwiseFromDealerLeft(4, 0), [3, 2, 1, 0]);
+  assert.deepEqual(clockwiseFromDealerLeft(4, 2), [1, 0, 3, 2]);
 });
 
 test("startHand deals 3 to each, flips trump, and leaves a valid stock", () => {
@@ -155,7 +155,7 @@ test("knock-in begins with the player to the dealer's left", () => {
   startHand(s);
   const dealerIndex = s.players.findIndex((p) => p.isDealer);
   dealerTrumpDecision(s, false);
-  assert.equal(s.currentKnockPlayerId, s.players[(dealerIndex + 1) % 5].id);
+  assert.equal(s.currentKnockPlayerId, s.players[(dealerIndex - 1 + 5) % 5].id);
 });
 
 test("dealerKeptFaceTrump reflects a kept face card only", () => {
