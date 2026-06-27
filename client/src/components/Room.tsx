@@ -38,7 +38,7 @@ export default function Room({ room, onLeft }: RoomProps) {
   }, [room.state.anteAmount]);
 
   useEffect(() => {
-    setCurrencyInput(String(room.state.startingCurrency));
+    setCurrencyInput(String(room.state.startingCurrency || 1000));
   }, [room.state.startingCurrency]);
 
   const ack = (a: ActionAck) => {
@@ -217,6 +217,7 @@ export default function Room({ room, onLeft }: RoomProps) {
               <input
                 type="number"
                 min={3}
+                placeholder="1000"
                 value={currencyInput}
                 onChange={(e) => setCurrencyInput(e.target.value)}
                 className="w-32 rounded-lg bg-slate-700 px-3 py-2 text-sm outline-none ring-1 ring-slate-600 focus:ring-indigo-400"
