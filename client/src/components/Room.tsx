@@ -25,7 +25,7 @@ const timeLabel = (mult: number) =>
 export default function Room({ room, onLeft }: RoomProps) {
   const [error, setError] = useState<string | null>(null);
   const [anteInput, setAnteInput] = useState(String(room.state.anteAmount));
-  const [currencyInput, setCurrencyInput] = useState(String(room.state.startingCurrency));
+  const [currencyInput, setCurrencyInput] = useState(String(room.state.startingCurrency || 1000));
 
   const myId = room.youId;
   const isHost = myId === room.hostId;
@@ -217,7 +217,6 @@ export default function Room({ room, onLeft }: RoomProps) {
               <input
                 type="number"
                 min={3}
-                placeholder="1000"
                 value={currencyInput}
                 onChange={(e) => setCurrencyInput(e.target.value)}
                 className="w-32 rounded-lg bg-slate-700 px-3 py-2 text-sm outline-none ring-1 ring-slate-600 focus:ring-indigo-400"
