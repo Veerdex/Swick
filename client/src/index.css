@@ -28,6 +28,13 @@ body {
   overscroll-behavior: none;
 }
 
+/* In portrait mode, add padding-top to respect safe areas (notches, camera cutouts). */
+@media (orientation: portrait) {
+  main {
+    padding-top: max(1.5rem, env(safe-area-inset-top));
+  }
+}
+
 /* Hide the scrollbar on the swipeable lobby pager (and any opt-in element),
    while keeping the element scrollable via touch/trackpad/buttons. */
 .no-scrollbar {
